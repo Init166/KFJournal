@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Страница не найдена - КФ ЖУРНАЛ{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-actions .btn {
+        padding: 0.75rem 2rem;
+        font-size: 1.1rem;
+    }
+    
+    .emoji-animation {
+        display: inline-block;
+        animation: bounce 2s infinite;
+    }
+    
+    @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-15px); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="py-5">
+        <!-- Анимированный код ошибки -->
+        <div class="error-code mb-3">404</div>
+        
+        <!-- Заголовок -->
+        <h1 class="error-title display-5 fw-bold mb-4">Упс! Страница не найдена</h1>
+        
+        <!-- Описание -->
+        <p class="error-description">
+            Запрашиваемая страница не существует, была перемещена или удалена. 
+            Проверьте правильность введенного адреса или вернитесь на главную страницу.
+        </p>
+        
+        <!-- Анимированная иконка -->
+        <div class="mb-5">
+            <i class="emoji-animation bi bi-emoji-frown display-1 text-muted"></i>
+        </div>
+        
+        <!-- Кнопки действий -->
+        <div class="error-actions d-flex flex-column flex-md-row justify-content-center gap-3">
+            <a href="{% url 'home' %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-house-door me-2"></i>
+                Вернуться на главную
+            </a>
+            
+            <a href="https://www.google.com/" class="btn btn-outline-secondary btn-lg" target="_blank">
+                <i class="bi bi-box-arrow-up-right me-2"></i>
+                Перейти на сайт ВУЗа
+            </a>
+            
+            <button onclick="history.back()" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-arrow-left me-2"></i>
+                Назад
+            </button>
+        </div>
+        
+        <!-- Техническая информация -->
+        <div class="mt-5 pt-4 border-top">
+            <p class="text-muted small">
+                <i class="bi bi-info-circle me-1"></i>
+                Если вы уверены, что эта страница должна существовать, 
+                сообщите об ошибке администратору системы.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+/* Основные стили для проекта */
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+    padding-bottom: 2rem;
+}
+
+/* Стили для карточек выбора роли */
+.role-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    border-radius: 15px;
+    height: 100%;
+    background: white;
+}
+
+.role-card:hover {
+    transform: translateY(-10px);
+    border-color: #0d6efd;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+}
+
+.role-icon {
+    font-size: 4.5rem;
+    margin-bottom: 1.5rem;
+    display: block;
+}
+
+.student-icon {
+    color: #0d6efd; /* Синий для студента */
+}
+
+.elder-icon {
+    color: #198754; /* Зеленый для старосты */
+}
+
+/* Кастомные кнопки */
+.btn-role {
+    padding: 1.2rem 2rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.btn-role:hover {
+    transform: scale(1.05);
+}
+
+/* Заголовки */
+.welcome-title {
+    color: #2c3e50;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.welcome-subtitle {
+    color: #7f8c8d;
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .role-icon {
+        font-size: 3.5rem;
+    }
+    
+    .btn-role {
+        padding: 1rem 1.5rem;
+        font-size: 1rem;
+    }
+    
+    .welcome-title {
+        font-size: 2rem;
+    }
+}
+
+/* Страница 404 */
+.error-container {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.error-code {
+    font-size: 8rem;
+    font-weight: bold;
+    color: #dc3545;
+    line-height: 1;
+    margin-bottom: 1rem;
+}
+
+.error-title {
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.error-description {
+    color: #7f8c8d;
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto 2rem;
+}
+
+/* Анимация для 404 страницы */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+
+.floating-icon {
+    animation: float 3s ease-in-out infinite;
+}
+
+@media (max-width: 768px) {
+    .error-code {
+        font-size: 5rem;
+    }
+}
+
+/* Дополнительные стили для контента */
+.card {
+    border: none;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+.alert {
+    border: none;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}

@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Панель старосты{% endblock %}
+
+{% block content %}
+<div>
+    <!-- Приветствие -->
+    <div class="card-custom mb-4" style="background: linear-gradient(135deg, #28a745, #20c997); color: white;">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h1 class="h2 fw-bold mb-2">Здравствуйте, {{ elder.full_name }}!</h1>
+                <p class="mb-0 opacity-75">
+                    <i class="bi bi-people-fill me-2"></i>Группа: <strong>{{ group.name }}</strong>
+                </p>
+            </div>
+            <span class="badge bg-white text-success p-3 rounded-pill">Староста</span>
+        </div>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ students_count }}</div>
+                <div class="stat-label">Студентов</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_absences }}</div>
+                <div class="stat-label">Пропусков (ч)</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="bi bi-journal-check"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ subjects_count|default:"0" }}</div>
+                <div class="stat-label">Предметов</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Быстрые действия -->
+    <h3 class="section-title">Быстрые действия</h3>
+    <div class="actions-grid">
+        <a href="{% url 'elder_students' %}" class="action-card">
+            <div class="action-icon"><i class="bi bi-person-plus-fill"></i></div>
+            <div class="action-title">Студенты</div>
+            <div class="action-desc">Добавить/редактировать</div>
+        </a>
+        <a href="{% url 'elder_attendance' %}" class="action-card">
+            <div class="action-icon"><i class="bi bi-calendar-x-fill"></i></div>
+            <div class="action-title">Пропуски</div>
+            <div class="action-desc">Отметить</div>
+        </a>
+        <a href="{% url 'elder_grades' %}" class="action-card">
+            <div class="action-icon"><i class="bi bi-journal-plus"></i></div>
+            <div class="action-title">Оценки</div>
+            <div class="action-desc">Управление</div>
+        </a>
+        <a href="{% url 'elder_schedule' %}" class="action-card">
+            <div class="action-icon"><i class="bi bi-calendar-week-fill"></i></div>
+            <div class="action-title">Расписание</div>
+            <div class="action-desc">Просмотр</div>
+        </a>
+    </div>
+    
+    <!-- Последние добавленные -->
+    {% if recent_students %}
+    <h3 class="section-title mt-5">Последние добавленные</h3>
+    <div class="table-responsive-custom">
+        <table class="table-custom">
+            <thead>
+                <tr>
+                    <th>ФИО</th>
+                    <th>Логин</th>
+                    <th>Пропуски</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for student in recent_students %}
+                <tr>
+                    <td><strong>{{ student.full_name }}</strong></td>
+                    <td><code>{{ student.login }}</code></td>
+                    <td>
+                        <span class="badge-custom 
+                            {% if student.profile.total_hours >= 20 %}badge-danger
+                            {% elif student.profile.total_hours >= 15 %}badge-warning
+                            {% else %}badge-success{% endif %}">
+                            {{ student.profile.total_hours }} ч.
+                        </span>
+                    </td>
+                    <td>
+                        {% if student.is_active %}
+                        <span class="badge-custom badge-success">Активен</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn-icon" onclick="editStudent({{ student.id }})"><i class="bi bi-pencil"></i></button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function editStudent(studentId) {
+    window.location.href = `/elders/students/?edit=${studentId}`;
+}
+</script>
+{% endblock %}

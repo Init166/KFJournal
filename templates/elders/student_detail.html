@@ -1,0 +1,414 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ student.full_name }} - Успеваемость{% endblock %}
+
+{% block content %}
+<div>
+    <!-- Заголовок -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="page-title mb-2">
+                <i class="bi bi-person-circle text-success me-2"></i>
+                {{ student.full_name }}
+            </h1>
+            <p class="text-muted">
+                Группа: {{ group.name }} | 
+                Логин: {{ student.login }} |
+                {% if student.user_type == 'elder' %}
+                <span class="badge-custom badge-warning">Староста</span>
+                {% endif %}
+            </p>
+        </div>
+        <a href="{% url 'elder_grades' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>
+            Назад
+        </a>
+    </div>
+    
+    <!-- Статистика -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon primary"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ total_hours }}</div>
+                <div class="stat-label">Пропусков (ч)</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="bi bi-star"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ remaining_hours }}</div>
+                <div class="stat-label">Осталось часов</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning"><i class="bi bi-journal-check"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ subjects_data|length }}</div>
+                <div class="stat-label">Предметов</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Предстоящие выступления -->
+    {% if slots %}
+    <div class="card-custom mb-4">
+        <h3 class="section-title mb-3">
+            <i class="bi bi-mic me-2"></i>
+            Предстоящие выступления
+        </h3>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>День</th>
+                        <th>Дата</th>
+                        <th>Предмет</th>
+                        <th>Время</th>
+                        <th>Слот</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for slot in slots %}
+                    <tr>
+                        <td>{{ slot.schedule.get_day_display }}</td>
+                        <td>{{ slot.schedule.date|date:"d.m.Y" }}</td>
+                        <td>{{ slot.schedule.subject }}</td>
+                        <td>{{ slot.schedule.start_time }} - {{ slot.schedule.end_time }}</td>
+                        <td>Слот {{ slot.slot_number }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+    <!-- Успеваемость по предметам -->
+<div class="card-custom">
+    <h3 class="section-title mb-3 d-flex justify-content-between align-items-center">
+        <span>
+            <i class="bi bi-journal-check me-2"></i>
+            Успеваемость по предметам
+        </span>
+        <button class="btn btn-sm btn-success" onclick="openGradeModal(null, null)">
+            <i class="bi bi-plus-circle me-1"></i>
+            Добавить оценку
+        </button>
+    </h3>
+    
+    {% for subject_data in subjects_data %}
+    <div class="border-bottom pb-3 mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+                <h4 class="h6 fw-bold mb-0">{{ subject_data.subject.name }}</h4>
+                <small class="text-muted">{{ subject_data.subject.teacher|default:"" }}</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge-custom 
+                    {% if subject_data.status == 'success' %}badge-success
+                    {% elif subject_data.status == 'warning' %}badge-warning
+                    {% else %}badge-danger{% endif %}">
+                    {{ subject_data.total_points|floatformat:1 }}/21
+                </span>
+                <button class="btn btn-sm btn-outline-success" 
+                        onclick="openGradeModal({{ subject_data.subject.id }}, '{{ subject_data.subject.name }}')">
+                    <i class="bi bi-plus-circle"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Прогресс-бар -->
+        <div class="progress-custom mb-2">
+            <div class="progress-fill" style="width: {{ subject_data.progress }}%;"></div>
+        </div>
+        
+        <!-- Список оценок -->
+        {% if subject_data.grades %}
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            {% for grade in subject_data.grades %}
+            <div class="position-relative">
+                <span class="badge bg-light text-dark p-2" title="{{ grade.date|date:'d.m.Y' }} - {{ grade.comment|default:'' }}">
+                    {{ grade.raw_value }}
+                    {% if grade.comment %}
+                    <i class="bi bi-chat-dots text-muted ms-1" style="font-size: 10px;"></i>
+                    {% endif %}
+                </span>
+                <button class="btn btn-sm btn-link text-danger p-0 position-absolute top-0 start-100 translate-middle" 
+                        onclick="deleteGrade({{ grade.id }})" style="font-size: 10px;">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted small mb-0">Нет оценок</p>
+        {% endif %}
+    </div>
+    {% empty %}
+    <p class="text-center text-muted py-4">Нет данных об успеваемости</p>
+    {% endfor %}
+</div>
+    
+    <!-- Добавьте эту форму внизу страницы, перед скриптами -->
+<div class="modal fade" id="gradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Добавить оценку
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="gradeForm">
+                {% csrf_token %}
+                <input type="hidden" name="student_id" value="{{ student.id }}">
+                <input type="hidden" name="subject_id" id="gradeSubjectId" value="">  <!-- ВАЖНО! -->
+                <input type="hidden" name="use_today" id="useToday" value="true">
+                
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Предмет</label>
+                        <select class="form-select" id="subjectSelect" required onchange="updateSubjectId(this)">
+                            <option value="">Выберите предмет</option>
+                            {% for subject_data in subjects_data %}
+                            <option value="{{ subject_data.subject.id }}" data-name="{{ subject_data.subject.name }}">
+                                {{ subject_data.subject.name }} ({{ subject_data.total_points }}/21)
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Тип оценки</label>
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="performance" data-value="выступление">🎤 выступление</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="supplement" data-value="дополнение">📝 дополнение</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="question" data-value="вопрос">❓ вопрос</button>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="plus" data-value="+">➕</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="minus" data-value="-">➖</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_2" data-value="2">2</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_3" data-value="3">3</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_4" data-value="4">4</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_5" data-value="5">5</button>
+                        </div>
+                        <input type="hidden" name="grade_type" id="gradeType" required>
+                        <input type="hidden" name="raw_value" id="rawValue" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Дата</label>
+                        <input type="date" class="form-control" name="date" id="gradeDate" value="{{ today|date:'Y-m-d' }}" required>
+                        <div class="form-check mt-2">
+                            <input type="checkbox" class="form-check-input" id="isToday" checked onchange="toggleDateField()">
+                            <label class="form-check-label" for="isToday">Сегодня</label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Комментарий</label>
+                        <textarea class="form-control" name="comment" rows="2" placeholder="Необязательно"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success">Добавить оценку</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Функции для работы с оценками
+function updateSubjectId(select) {
+    document.getElementById('gradeSubjectId').value = select.value;
+}
+
+function toggleDateField() {
+    const isToday = document.getElementById('isToday').checked;
+    const dateField = document.getElementById('gradeDate');
+    const useToday = document.getElementById('useToday');
+    
+    if (isToday) {
+        dateField.disabled = true;
+        useToday.value = 'true';
+        // Устанавливаем сегодняшнюю дату
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        dateField.value = `${year}-${month}-${day}`;
+    } else {
+        dateField.disabled = false;
+        useToday.value = 'false';
+    }
+}
+
+// Обработчики для кнопок типов оценок
+document.querySelectorAll('.grade-type-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.getElementById('gradeType').value = this.dataset.type;
+        document.getElementById('rawValue').value = this.dataset.value;
+        
+        document.querySelectorAll('.grade-type-btn').forEach(b => {
+            b.classList.remove('active', 'btn-success');
+            b.classList.add('btn-outline-success');
+        });
+        this.classList.remove('btn-outline-success');
+        this.classList.add('active', 'btn-success');
+    });
+});
+
+// Отправка формы
+document.getElementById('gradeForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Проверяем, выбран ли предмет
+    if (!document.getElementById('gradeSubjectId').value) {
+        showNotification('❌ Выберите предмет', 'danger');
+        return;
+    }
+    
+    // Проверяем, выбран ли тип оценки
+    if (!document.getElementById('gradeType').value) {
+        showNotification('❌ Выберите тип оценки', 'danger');
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const data = Object.fromEntries(formData.entries());
+    
+    fetch('/elders/api/add-grade/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('gradeModal')).hide();
+            showNotification('✅ Оценка добавлена');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification('❌ Ошибка: ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showNotification('❌ Ошибка при сохранении', 'danger');
+    });
+});
+
+function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.innerHTML = message;
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 3000);
+}
+
+function openGradeModal(subjectId, subjectName) {
+    document.getElementById('gradeSubjectId').value = subjectId;
+    
+    // Выбираем нужный предмет в селекте
+    const select = document.getElementById('subjectSelect');
+    for (let option of select.options) {
+        if (option.value == subjectId) {
+            option.selected = true;
+            break;
+        }
+    }
+    
+    // Сбрасываем тип оценки
+    document.getElementById('gradeType').value = '';
+    document.getElementById('rawValue').value = '';
+    document.querySelectorAll('.grade-type-btn').forEach(b => {
+        b.classList.remove('active', 'btn-success');
+        b.classList.add('btn-outline-success');
+    });
+    
+    // Устанавливаем сегодняшнюю дату
+    document.getElementById('isToday').checked = true;
+    toggleDateField();
+    
+    new bootstrap.Modal(document.getElementById('gradeModal')).show();
+}
+
+
+function deleteGrade(gradeId) {
+    if (confirm('Удалить оценку?')) {
+        fetch('/elders/api/delete-grade/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id: gradeId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('✅ Оценка удалена');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showNotification('❌ Ошибка при удалении', 'danger');
+            }
+        });
+    }
+}
+
+</script>
+
+<style>
+.grade-type-btn.active {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+.grade-type-btn {
+    transition: all 0.2s;
+}
+
+
+</style>
+
+    <!-- История пропусков -->
+    {% if attendances %}
+    <div class="card-custom mt-4">
+        <h3 class="section-title mb-3">
+            <i class="bi bi-calendar-x me-2"></i>
+            История пропусков
+        </h3>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Часы</th>
+                        <th>Причина</th>
+                        <th>Кто отметил</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attendance in attendances %}
+                    <tr>
+                        <td>{{ attendance.date|date:"d.m.Y" }}</td>
+                        <td><span class="badge-custom badge-danger">{{ attendance.hours }} ч</span></td>
+                        <td>{{ attendance.reason|default:"—" }}</td>
+                        <td>{{ attendance.marked_by.full_name|default:"Система" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

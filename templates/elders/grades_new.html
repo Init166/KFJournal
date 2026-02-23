@@ -1,0 +1,965 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Управление оценками{% endblock %}
+
+{% block content %}
+<div>
+    <h1 class="page-title mb-4">
+        <i class="bi bi-journal-check text-success me-2"></i>
+        Управление оценками
+    </h1>
+    
+    <!-- Статистика успеваемости -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card">
+            <div class="stat-icon success"><i class="bi bi-trophy"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ students_count }}</div>
+                <div class="stat-label">Студентов</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon warning"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ at_risk_count }}</div>
+                <div class="stat-label">В зоне риска</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon primary"><i class="bi bi-star"></i></div>
+            <div class="stat-content">
+                <div class="stat-value">{{ ready_count }}</div>
+                <div class="stat-label">Готовы к сессии</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Навигация по неделям -->
+    <div class="card-custom mb-4">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge-custom {% if week_type == 'even' %}badge-info{% else %}badge-warning{% endif %} p-3">
+                    {{ week_display }} неделя
+                </span>
+                <span class="text-muted">{{ current_date|date:"d.m.Y" }}</span>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="changeWeekOffset(-1)">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <button class="btn btn-outline-primary" onclick="changeWeekOffset(1)">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+                <button class="btn btn-outline-success" onclick="goToToday()">
+                    <i class="bi bi-calendar-check"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Календарь для выбора прошедших семинаров -->
+    <button class="btn btn-outline-secondary w-100 mb-3" onclick="toggleCalendar()" id="toggleCalendarBtn">
+        <i class="bi bi-chevron-up"></i> Скрыть календарь
+    </button>
+    
+    <div class="card-custom mb-4" id="calendarSection" style="display: block;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h5 fw-bold">{{ month_days.month_name }} {{ month_days.year }}</h3>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeMonth(-1)">←</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeMonth(1)">→</button>
+            </div>
+        </div>
+        
+        <div class="calendar-grid">
+            <div class="text-center text-muted small fw-bold py-2">Пн</div>
+            <div class="text-center text-muted small fw-bold py-2">Вт</div>
+            <div class="text-center text-muted small fw-bold py-2">Ср</div>
+            <div class="text-center text-muted small fw-bold py-2">Чт</div>
+            <div class="text-center text-muted small fw-bold py-2">Пт</div>
+            <div class="text-center text-muted small fw-bold py-2">Сб</div>
+            <div class="text-center text-muted small fw-bold py-2">Вс</div>
+            
+            {% for _ in ""|ljust:month_days.first_day %}
+            <div></div>
+            {% endfor %}
+            
+            {% for day in month_days.days %}
+            <div class="calendar-day {{ day.week_type }} {% if day.is_today %}today{% endif %}"
+                 onclick="selectDate('{{ day.date|date:'Y-m-d' }}')">
+                {{ day.day }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Семинары на выбранную неделю -->
+    <div class="schedule-scroll" id="scheduleScroll">
+        <!-- Загружается через JS -->
+    </div>
+    
+    <!-- Список всех студентов -->
+    <div class="card-custom mt-4">
+        <h3 class="section-title mb-3">
+            <i class="bi bi-people-fill me-2"></i>
+            Все студенты группы
+        </h3>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>ФИО</th>
+                        <th>Староста</th>
+                        <th>Предметов</th>
+                        <th>Прогресс</th>
+                        <th></th>
+                    </tr>
+                </thead>
+               <tbody id="studentsTableBody">
+    {% for student in students %}
+    <tr>
+        <td>{{ forloop.counter }}</td>
+        <td>
+            <strong>{{ student.full_name }}</strong>
+            <br>
+            <small class="text-muted">{{ student.login }}</small>
+        </td>
+        <td>
+            {% if student.user_type == 'elder' %}
+            <span class="badge-custom badge-warning">Староста</span>
+            {% endif %}
+        </td>
+        <td>
+            {% with subject_count=student.subjects_count %}
+            <span class="badge-custom badge-info">{{ subject_count }}</span>
+            {% endwith %}
+        </td>
+        <td style="width: 200px;">
+            {% with progress=student.avg_progress %}
+            <div class="progress-custom">
+                <div class="progress-fill" style="width: {{ progress }}%;"></div>
+            </div>
+            <small class="text-muted">{{ progress }}%</small>
+            {% endwith %}
+        </td>
+        <td>
+            <a href="{% url 'student_detail' student.id %}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-eye"></i>
+            </a>
+            <button class="btn btn-sm btn-outline-success" onclick="quickGrade({{ student.id }}, '{{ student.full_name }}')">
+                <i class="bi bi-plus-circle"></i>
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для выбора студента -->
+<div class="modal fade" id="selectStudentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Выбрать студента для слота</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="studentSearch" placeholder="Поиск по имени...">
+                </div>
+                <div class="student-list" id="studentList" style="max-height: 300px; overflow-y: auto;">
+                    <!-- Список студентов загружается через JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно добавления оценки -->
+<div class="modal fade" id="gradeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Добавить оценку</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="gradeForm">
+                {% csrf_token %}
+                <input type="hidden" name="slot_id" id="gradeSlotId">
+                <input type="hidden" name="student_id" id="gradeStudentId">
+                <input type="hidden" name="seminar_id" id="gradeSeminarId">
+                
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Студент</label>
+                        <input type="text" class="form-control" id="gradeStudentName" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Предмет</label>
+                        <input type="text" class="form-control" id="gradeSubject" readonly>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Текущие баллы по предмету</label>
+                        <div class="progress-custom mb-2">
+                            <div class="progress-fill" id="gradeProgress" style="width: 0%;"></div>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span id="gradeCurrentPoints">0</span>
+                            <span>/21 баллов</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Тип оценки</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="performance" data-value="выступил(а)">🎤 выступление</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="supplement" data-value="дополнил(а)">📝 дополнение</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="question" data-value="вопрос">❓ вопрос</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="plus" data-value="+">➕</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="minus" data-value="-">➖</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_2" data-value="2">2</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_3" data-value="3">3</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_4" data-value="4">4</button>
+                            <button type="button" class="btn btn-outline-success grade-type-btn" data-type="numeric_5" data-value="5">5</button>
+                        </div>
+                        <input type="hidden" name="grade_type" id="gradeType" required>
+                        <input type="hidden" name="raw_value" id="rawValue" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Дата</label>
+                        <input type="date" class="form-control" name="date" id="gradeDate" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Комментарий</label>
+                        <textarea class="form-control" name="comment" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 5px;
+    }
+    
+    .calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        position: relative;
+    }
+    
+    .calendar-day.even {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .calendar-day.odd {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .calendar-day.today {
+        border: 2px solid #28a745;
+        font-weight: bold;
+    }
+    
+    .calendar-day:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .schedule-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 16px;
+        padding: 4px 0 20px;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+    }
+    
+    .seminar-day {
+        min-width: 350px;
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid rgba(0,0,0,0.05);
+        scroll-snap-align: start;
+    }
+    
+    .day-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .day-header h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #212529;
+    }
+    
+    .day-date {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    
+    .seminar-card {
+        background: #f8f9fc;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 16px;
+        border-left: 4px solid #28a745;
+    }
+    
+    .seminar-time {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #28a745;
+        margin-bottom: 8px;
+    }
+    
+    .seminar-subject {
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+    
+    .seminar-teacher {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 12px;
+    }
+    
+    .slots-container {
+        display: flex;
+        gap: 12px;
+        margin: 12px 0;
+    }
+    
+    .slot {
+        flex: 1;
+        background: white;
+        border-radius: 12px;
+        padding: 12px;
+        border: 2px dashed #dee2e6;
+        transition: all 0.2s;
+    }
+    
+    .slot.filled {
+        border: 2px solid #28a745;
+        background: #f0f9f0;
+    }
+    
+    .slot-number {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 4px;
+    }
+    
+    .slot-student {
+        font-weight: 600;
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+    }
+    
+    .slot-points {
+        font-size: 0.8rem;
+        color: #28a745;
+    }
+    
+    .slot-actions {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 8px;
+    }
+    
+    .slot-btn {
+        border: none;
+        background: none;
+        color: #6c757d;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    
+    .slot-btn:hover {
+        background: #28a745;
+        color: white;
+        transform: scale(1.1);
+    }
+    
+    .slot-btn.remove:hover {
+        background: #dc3545;
+    }
+    
+    .student-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid #e9ecef;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .student-item:hover {
+        background: #f0f9f0;
+    }
+    
+    .student-item .points {
+        font-weight: 600;
+        color: #28a745;
+    }
+    
+    .student-item .points.warning {
+        color: #dc3545;
+    }
+    
+    .student-item .points.success {
+        color: #28a745;
+    }
+</style>
+
+<script>
+    let currentWeekType = '{{ week_type }}';
+    let currentGroupId = {{ group.id }};
+    let currentDate = '{{ current_date|date:"Y-m-d" }}';
+    let currentSeminarId = null;
+    let currentSlotNumber = null;
+    
+    // Навигация по неделям
+    function changeWeekOffset(offset) {
+        let date = new Date(currentDate);
+        date.setDate(date.getDate() + (offset * 7));
+        window.location.href = `?date=${date.toISOString().split('T')[0]}`;
+    }
+    
+    function goToToday() {
+        window.location.href = `?date=${new Date().toISOString().split('T')[0]}`;
+    }
+    
+    function selectDate(date) {
+        window.location.href = `?date=${date}`;
+    }
+    
+    function changeMonth(offset) {
+        let date = new Date(currentDate);
+        date.setMonth(date.getMonth() + offset);
+        window.location.href = `?date=${date.toISOString().split('T')[0]}`;
+    }
+    
+    function toggleCalendar() {
+        const cal = document.getElementById('calendarSection');
+        const btn = document.getElementById('toggleCalendarBtn');
+        
+        if (cal.style.display === 'none') {
+            cal.style.display = 'block';
+            btn.innerHTML = '<i class="bi bi-chevron-up"></i> Скрыть календарь';
+        } else {
+            cal.style.display = 'none';
+            btn.innerHTML = '<i class="bi bi-chevron-down"></i> Показать календарь';
+        }
+    }
+    
+    // Загрузка семинаров
+    function loadSeminars() {
+        fetch(`/elders/api/seminar-slots/?week_type=${currentWeekType}&group_id=${currentGroupId}`)
+            .then(r => r.json())
+            .then(data => {
+                renderSeminars(data.seminars || []);
+            })
+            .catch(error => {
+                console.error('Error loading seminars:', error);
+            });
+    }
+    
+    function renderSeminars(seminars) {
+        const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+        const scroll = document.getElementById('scheduleScroll');
+        
+        // Группируем по дням
+        const byDay = {};
+        seminars.forEach(seminar => {
+            if (!byDay[seminar.day]) byDay[seminar.day] = [];
+            byDay[seminar.day].push(seminar);
+        });
+        
+        let html = '';
+        for (let i = 1; i <= 7; i++) {
+            const daySeminars = byDay[i] || [];
+            const dayDate = getDateForDay(i);
+            
+            html += `
+                <div class="seminar-day">
+                    <div class="day-header">
+                        <h3>${days[i-1]}</h3>
+                        <span class="day-date">${dayDate}</span>
+                    </div>
+                    
+                    ${daySeminars.map(seminar => {
+                        return `
+                            <div class="seminar-card">
+                                <div class="seminar-time">${seminar.start_time} - ${seminar.end_time}</div>
+                                <div class="seminar-subject">${seminar.subject}</div>
+                                <div class="seminar-teacher">${seminar.teacher || ''}</div>
+                                
+                                <div class="slots-container">
+                                    ${[1, 2].map(slotNum => {
+                                        const slot = seminar.slots?.find(s => s.slot_number === slotNum);
+                                        if (slot?.student_id) {
+                                            const pointsClass = slot.student_points >= 21 ? 'success' : 
+                                                              slot.student_points >= 15 ? 'warning' : 'danger';
+                                            return `
+                                                <div class="slot filled">
+                                                    <div class="slot-number">Слот ${slotNum}</div>
+                                                    <div class="slot-student">${slot.student_name}</div>
+                                                    <div class="slot-points text-${pointsClass}">
+                                                        ${slot.student_points}/21
+                                                    </div>
+                                                    <div class="slot-actions">
+                                                        <button class="slot-btn" onclick="gradeStudent(${slot.id}, ${slot.student_id}, '${slot.student_name}', '${seminar.subject}', ${seminar.id})">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        <button class="slot-btn remove" onclick="removeFromSlot(${slot.id})">
+                                                            <i class="bi bi-x"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        } else {
+                                            return `
+                                                <div class="slot">
+                                                    <div class="slot-number">Слот ${slotNum}</div>
+                                                    <div class="slot-student">—</div>
+                                                    <div class="slot-actions">
+                                                        <button class="slot-btn" onclick="openStudentSelect(${seminar.id}, ${slotNum})">
+                                                            <i class="bi bi-plus"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                    
+                    ${daySeminars.length === 0 ? `
+                        <div class="text-center text-muted py-4">
+                            Нет семинаров
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        scroll.innerHTML = html;
+    }
+    
+    function getDateForDay(dayNumber) {
+        // Получаем дату для конкретного дня текущей недели
+        const date = new Date(currentDate);
+        const currentDay = date.getDay() || 7; // Преобразуем 0 (воскресенье) в 7
+        const diff = dayNumber - currentDay;
+        date.setDate(date.getDate() + diff);
+        return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+    }
+    
+    // Выбор студента для слота
+    function openStudentSelect(seminarId, slotNumber) {
+        currentSeminarId = seminarId;
+        currentSlotNumber = slotNumber;
+        
+        // Получаем ID предмета
+        fetch(`/elders/api/get-subject-id/?seminar_id=${seminarId}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.subject_id) {
+                    return fetch(`/elders/api/students-with-points/?subject_id=${data.subject_id}`);
+                }
+                return Promise.reject('No subject ID');
+            })
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('studentList');
+                list.innerHTML = data.students.map(s => `
+                    <div class="student-item" onclick="selectStudent(${s.id})">
+                        <span>${s.name}</span>
+                        <span class="points ${s.total_points >= 21 ? 'success' : s.total_points >= 15 ? 'warning' : 'danger'}">
+                            ${s.total_points}/21
+                        </span>
+                    </div>
+                `).join('');
+                
+                new bootstrap.Modal(document.getElementById('selectStudentModal')).show();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ошибка загрузки студентов');
+            });
+    }
+    
+    function selectStudent(studentId) {
+        fetch('/elders/api/assign-slot/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                seminar_id: currentSeminarId,
+                slot_number: currentSlotNumber,
+                student_id: studentId
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('selectStudentModal')).hide();
+                loadSeminars();
+                showNotification('✅ Студент назначен');
+            } else {
+                showNotification('❌ Ошибка: ' + data.error, 'danger');
+            }
+        });
+    }
+    
+    function removeFromSlot(slotId) {
+        if (confirm('Убрать студента из слота?')) {
+            fetch('/elders/api/remove-slot/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ slot_id: slotId })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadSeminars();
+                    showNotification('✅ Студент убран');
+                } else {
+                    showNotification('❌ Ошибка: ' + data.error, 'danger');
+                }
+            });
+        }
+    }
+    // Добавление оценки
+function gradeStudent(slotId, studentId, studentName, subject, seminarId) {
+    document.getElementById('gradeSlotId').value = slotId;
+    document.getElementById('gradeStudentId').value = studentId;
+    document.getElementById('gradeSeminarId').value = seminarId;
+    document.getElementById('gradeStudentName').value = studentName;
+    document.getElementById('gradeSubject').value = subject;
+    
+    // ПОЛУЧАЕМ ID ПРЕДМЕТА ПО НАЗВАНИЮ
+    fetch(`/elders/api/get-subject-id/?seminar_id=${seminarId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.subject_id) {
+                // Сохраняем subject_id в скрытое поле
+                const subjectIdInput = document.createElement('input');
+                subjectIdInput.type = 'hidden';
+                subjectIdInput.name = 'subject_id';
+                subjectIdInput.id = 'gradeSubjectId';
+                subjectIdInput.value = data.subject_id;
+                
+                // Удаляем старый, если есть
+                const oldInput = document.getElementById('gradeSubjectId');
+                if (oldInput) oldInput.remove();
+                
+                document.getElementById('gradeForm').appendChild(subjectIdInput);
+            }
+        });
+    
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    document.getElementById('gradeDate').value = `${year}-${month}-${day}`;
+    
+    // Загружаем текущие баллы студента
+    fetch(`/elders/api/student-points/?student_id=${studentId}&subject=${encodeURIComponent(subject)}`)
+        .then(r => r.json())
+        .then(data => {
+            const points = data.total_points || 0;
+            const progress = (points / 21) * 100;
+            document.getElementById('gradeCurrentPoints').textContent = points;
+            document.getElementById('gradeProgress').style.width = progress + '%';
+        });
+    
+    new bootstrap.Modal(document.getElementById('gradeModal')).show();
+}
+    
+    // Обработчики для кнопок типов оценок
+    document.querySelectorAll('.grade-type-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('gradeType').value = this.dataset.type;
+            document.getElementById('rawValue').value = this.dataset.value;
+            
+            document.querySelectorAll('.grade-type-btn').forEach(b => {
+                b.classList.remove('active', 'btn-success');
+                b.classList.add('btn-outline-success');
+            });
+            this.classList.remove('btn-outline-success');
+            this.classList.add('active', 'btn-success');
+        });
+    });
+    
+    // Отправка формы оценки
+    // Отправка формы оценки
+document.getElementById('gradeForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const data = {
+        slot_id: formData.get('slot_id'),
+        student_id: formData.get('student_id'),
+        seminar_id: formData.get('seminar_id'),
+        subject_id: formData.get('subject_id'),  // Добавлено!
+        grade_type: formData.get('grade_type'),
+        raw_value: formData.get('raw_value'),
+        date: formData.get('date'),
+        comment: formData.get('comment'),
+        use_today: 'false'
+    };
+    
+    // Проверяем, что выбран тип оценки
+    if (!data.grade_type) {
+        showNotification('❌ Выберите тип оценки', 'danger');
+        return;
+    }
+    
+    // Проверяем, что есть subject_id
+    if (!data.subject_id) {
+        showNotification('❌ Не удалось определить предмет', 'danger');
+        return;
+    }
+    
+    fetch('/elders/api/add-grade/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('gradeModal')).hide();
+            loadSeminars();
+            showNotification('✅ Оценка добавлена');
+        } else {
+            showNotification('❌ Ошибка: ' + data.error, 'danger');
+        }
+    });
+});
+    
+    // Поиск студентов
+    document.getElementById('studentSearch')?.addEventListener('input', function() {
+        const search = this.value.toLowerCase();
+        document.querySelectorAll('.student-item').forEach(item => {
+            const name = item.querySelector('span').textContent.toLowerCase();
+            item.style.display = name.includes(search) ? 'flex' : 'none';
+        });
+    });
+    
+    // Уведомления
+    function showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
+        notification.style.zIndex = '9999';
+        notification.innerHTML = message;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSeminars();
+    });
+
+   function quickGrade(studentId, studentName) {
+    window.quickGradeStudent = { id: studentId, name: studentName };
+    
+    const modalHtml = `
+        <div class="modal fade" id="quickGradeModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">Быстрая оценка: ${studentName}</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="quickCsrfToken" value="{{ csrf_token }}">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Предмет</label>
+                            <select class="form-select" id="quickSubjectSelect">
+                                <option value="">Выберите предмет</option>
+                                {% for subject in subjects %}
+                                <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Тип оценки</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="performance" data-value="выступление">🎤 выступление</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="supplement" data-value="дополнение">📝 дополнение</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="question" data-value="вопрос">❓ вопрос</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="plus" data-value="+">➕</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="minus" data-value="-">➖</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="numeric_2" data-value="2">2</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="numeric_3" data-value="3">3</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="numeric_4" data-value="4">4</button>
+                                <button type="button" class="btn btn-sm btn-outline-success quick-type-btn" data-type="numeric_5" data-value="5">5</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="button" class="btn btn-success" onclick="submitQuickGrade()">Добавить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (!document.getElementById('quickGradeModal')) {
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    new bootstrap.Modal(document.getElementById('quickGradeModal')).show();
+    
+    document.querySelectorAll('.quick-type-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.quick-type-btn').forEach(b => {
+                b.classList.remove('active', 'btn-success');
+                b.classList.add('btn-outline-success');
+            });
+            this.classList.remove('btn-outline-success');
+            this.classList.add('active', 'btn-success');
+            window.selectedQuickGrade = {
+                type: this.dataset.type,
+                value: this.dataset.value
+            };
+        });
+    });
+}
+
+function submitQuickGrade() {
+    const subjectId = document.getElementById('quickSubjectSelect').value;
+    if (!subjectId) {
+        showNotification('❌ Выберите предмет', 'danger');
+        return;
+    }
+    if (!window.selectedQuickGrade) {
+        showNotification('❌ Выберите тип оценки', 'danger');
+        return;
+    }
+    
+    const csrfToken = document.getElementById('quickCsrfToken')?.value || '{{ csrf_token }}';
+    
+    const data = {
+        student_id: window.quickGradeStudent.id,
+        subject_id: subjectId,
+        grade_type: window.selectedQuickGrade.type,
+        raw_value: window.selectedQuickGrade.value,
+        use_today: 'true',
+        comment: ''
+    };
+    
+    fetch('/elders/api/add-grade/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('quickGradeModal')).hide();
+            showNotification(`✅ Оценка добавлена для ${window.quickGradeStudent.name}`);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification('❌ Ошибка: ' + data.error, 'danger');
+        }
+    });
+}
+
+function submitQuickGrade() {
+    const subjectId = document.getElementById('quickSubjectSelect').value;
+    if (!subjectId) {
+        showNotification('❌ Выберите предмет', 'danger');
+        return;
+    }
+    if (!window.selectedQuickGrade) {
+        showNotification('❌ Выберите тип оценки', 'danger');
+        return;
+    }
+    
+    const data = {
+        student_id: window.quickGradeStudent.id,
+        subject_id: subjectId,
+        grade_type: window.selectedQuickGrade.type,
+        raw_value: window.selectedQuickGrade.value,
+        use_today: 'true',
+        comment: ''
+    };
+    
+    fetch('/elders/api/add-grade/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('quickGradeModal')).hide();
+            showNotification(`✅ Оценка добавлена для ${window.quickGradeStudent.name}`);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification('❌ Ошибка: ' + data.error, 'danger');
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,667 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Студенты группы {{ group.name }}{% endblock %}
+
+{% block content %}
+<div>
+    <!-- Заголовок -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="page-title mb-2">
+                <i class="bi bi-people-fill text-success me-2"></i>
+                Студенты группы {{ group.name }}
+            </h1>
+            <p class="text-muted">Всего: <strong>{{ students|length }}</strong> человек</p>
+        </div>
+        <button class="btn btn-success py-3 px-4" onclick="openAddStudentModal()">
+            <i class="bi bi-plus-lg me-2"></i>
+            Добавить студента
+        </button>
+    </div>
+    
+    <!-- Сетка студентов -->
+    <div class="students-grid">
+        {% for student in students %}
+        <div class="student-card" id="student-{{ student.id }}">
+            <div class="student-number">{{ forloop.counter }}</div>
+            
+            <div class="student-avatar">
+                {% if student.user_type == 'elder' %}
+                <i class="bi bi-star-fill" style="color: #ffc107;"></i>
+                {% else %}
+                <i class="bi bi-person-circle" style="color: #28a745;"></i>
+                {% endif %}
+            </div>
+            
+            <div class="student-name">
+                {{ student.full_name }}
+                {% if student.user_type == 'elder' %}
+                <span class="badge-custom badge-warning ms-2">Староста</span>
+                {% endif %}
+            </div>
+            
+            <div class="student-info">
+                <div class="info-row">
+                    <span class="info-label">Логин</span>
+                    <span><code>{{ student.login }}</code></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Пароль</span>
+                    <span>
+                        <span class="password-field" id="pass-{{ student.id }}">••••••••</span>
+                        <button class="btn btn-sm btn-link p-0 ms-2" onclick="togglePassword({{ student.id }}, '{{ student.password }}')">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Пропуски</span>
+                    <span>
+                        <span class="badge-custom 
+                            {% if student.profile.total_hours >= 20 %}badge-danger
+                            {% elif student.profile.total_hours >= 15 %}badge-warning
+                            {% else %}badge-success{% endif %}">
+                            {{ student.profile.total_hours }} ч.
+                        </span>
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Статус</span>
+                    <span>
+                        {% if student.is_active %}
+                        <span class="badge-custom badge-success">Активен</span>
+                        {% else %}
+                        <span class="badge-custom badge-danger">Неактивен</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% if student.email %}
+                <div class="info-row">
+                    <span class="info-label">Email</span>
+                    <span>{{ student.email }}</span>
+                </div>
+                {% endif %}
+                {% if student.phone %}
+                <div class="info-row">
+                    <span class="info-label">Телефон</span>
+                    <span>{{ student.phone }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="student-actions">
+                <button class="btn-icon" onclick="editStudent({{ student.id }})" title="Редактировать">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn-icon" onclick="generatePassword({{ student.id }})" title="Сгенерировать пароль">
+                    <i class="bi bi-arrow-repeat"></i>
+                </button>
+                <button class="btn-icon delete" onclick="deleteStudent({{ student.id }}, '{{ student.full_name }}')" title="Удалить">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-people display-1 text-muted"></i>
+            <h3 class="mt-3">В группе пока нет студентов</h3>
+            <p class="text-muted">Нажмите "Добавить студента", чтобы создать первого</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Модальное окно добавления студента -->
+<div class="modal fade" id="addStudentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-person-plus-fill me-2"></i>
+                    Добавить студента
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addStudentForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">ФИО</label>
+                            <input type="text" class="form-control" name="full_name" id="addFullName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Логин</label>
+                            <input type="text" class="form-control" name="login" id="addLogin" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Пароль</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="password" id="addPassword" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="generateRandomPassword('add')">
+                                    <i class="bi bi-dice-6"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" class="form-control" name="email" id="addEmail">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Телефон</label>
+                            <input type="tel" class="form-control" name="phone" id="addPhone">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Тип</label>
+                            <select class="form-select" name="user_type">
+                                <option value="student">Студент</option>
+                                <option value="elder">Староста</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+    <button type="button" class="btn btn-success" id="addAnotherBtn" onclick="addAnotherStudent()">Добавить и продолжить</button>
+    <button type="submit" class="btn btn-primary">Добавить</button>
+</div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно редактирования студента -->
+<div class="modal fade" id="editStudentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square me-2"></i>
+                    Редактировать студента
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editStudentForm">
+                {% csrf_token %}
+                <input type="hidden" name="student_id" id="editStudentId">
+                
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">ФИО</label>
+                            <input type="text" class="form-control" name="full_name" id="editFullName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Логин</label>
+                            <input type="text" class="form-control" name="login" id="editLogin" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Пароль</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="password" id="editPassword" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="generateRandomPassword('edit')">
+                                    <i class="bi bi-dice-6"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordField('edit')">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Email</label>
+                            <input type="email" class="form-control" name="email" id="editEmail">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Телефон</label>
+                            <input type="tel" class="form-control" name="phone" id="editPhone">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Тип</label>
+                            <select class="form-select" name="user_type" id="editUserType">
+                                <option value="student">Студент</option>
+                                <option value="elder">Староста</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" name="is_active" id="editIsActive" checked>
+                                <label class="form-check-label" for="editIsActive">Активен</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .students-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    @media (min-width: 640px) {
+        .students-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    @media (min-width: 1024px) {
+        .students-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    
+    .student-card {
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        position: relative;
+        border: 1px solid rgba(0,0,0,0.03);
+        transition: all 0.2s;
+    }
+    
+    .student-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        border-color: #28a745;
+    }
+    
+    .student-number {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        width: 28px;
+        height: 28px;
+        background: #f0f2f5;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #6c757d;
+    }
+    
+    .student-avatar {
+        text-align: center;
+        margin: 12px 0;
+    }
+    
+    .student-avatar i {
+        font-size: 64px;
+    }
+    
+    .student-name {
+        font-size: 1.2rem;
+        font-weight: 600;
+        text-align: center;
+        margin-bottom: 16px;
+    }
+    
+    .student-info {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 16px;
+        margin: 16px 0;
+        font-size: 0.9rem;
+    }
+    
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px dashed #dee2e6;
+    }
+    
+    .info-row:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+    
+    .info-label {
+        color: #6c757d;
+    }
+    
+    .student-actions {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+    }
+    
+    .btn-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid #dee2e6;
+        background: white;
+        color: #6c757d;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    
+    .btn-icon:hover {
+        background: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+    
+    .btn-icon.delete:hover {
+        background: #dc3545;
+        border-color: #dc3545;
+    }
+</style>
+
+<script>
+    // Открыть модальное окно добавления
+    function openAddStudentModal() {
+        document.getElementById('addStudentForm').reset();
+        new bootstrap.Modal(document.getElementById('addStudentModal')).show();
+    }
+    
+    // Генерация пароля
+    function generateRandomPassword(prefix) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let password = '';
+        for (let i = 0; i < 8; i++) {
+            password += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        document.getElementById(prefix + 'Password').value = password;
+    }
+    
+    // Показать/скрыть пароль
+    function togglePasswordField(prefix) {
+        const field = document.getElementById(prefix + 'Password');
+        field.type = field.type === 'password' ? 'text' : 'password';
+    }
+    
+    // Показать/скрыть пароль в карточке
+    function togglePassword(studentId, password) {
+        const span = document.getElementById(`pass-${studentId}`);
+        span.textContent = span.textContent === '••••••••' ? password : '••••••••';
+    }
+    
+    // Редактирование студента
+    function editStudent(studentId) {
+        // Загружаем данные студента
+        fetch(`/elders/api/get-student/${studentId}/`)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('editStudentId').value = data.id;
+                document.getElementById('editFullName').value = data.full_name;
+                document.getElementById('editLogin').value = data.login;
+                document.getElementById('editPassword').value = data.password;
+                document.getElementById('editEmail').value = data.email || '';
+                document.getElementById('editPhone').value = data.phone || '';
+                document.getElementById('editUserType').value = data.user_type;
+                document.getElementById('editIsActive').checked = data.is_active;
+                
+                new bootstrap.Modal(document.getElementById('editStudentModal')).show();
+            });
+    }
+    
+    // Отправка формы добавления
+document.getElementById('addStudentForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Добавление...';
+    submitBtn.disabled = true;
+    
+    fetch('/elders/api/add-student/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Закрываем модальное окно
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addStudentModal'));
+            modal.hide();
+            
+            // Показываем уведомление
+            showNotification('✅ Студент добавлен');
+            
+            // ОБНОВЛЯЕМ СПИСОК СТУДЕНТОВ БЕЗ ПЕРЕЗАГРУЗКИ СТРАНИЦЫ
+            addStudentToGrid(data.student);
+            
+            // Сбрасываем форму
+            document.getElementById('addStudentForm').reset();
+        } else {
+            showNotification('❌ ' + data.error, 'danger');
+        }
+    })
+    .catch(error => {
+        showNotification('❌ Ошибка при добавлении', 'danger');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+// Функция для добавления студента в сетку без перезагрузки
+function addStudentToGrid(student) {
+    const studentsGrid = document.querySelector('.students-grid');
+    const emptyMessage = document.querySelector('.text-center.py-5');
+    
+    // Если была заглушка "нет студентов", удаляем её
+    if (emptyMessage && emptyMessage.classList.contains('text-center')) {
+        emptyMessage.remove();
+    }
+    
+    // Определяем следующий номер
+    const existingCards = document.querySelectorAll('.student-card');
+    const nextNumber = existingCards.length + 1;
+    
+    // Создаём карточку нового студента
+    const newCard = document.createElement('div');
+    newCard.className = 'student-card';
+    newCard.id = `student-${student.id}`;
+    newCard.innerHTML = `
+        <div class="student-number">${nextNumber}</div>
+        <div class="student-avatar">
+            <i class="bi bi-person-circle" style="color: #28a745;"></i>
+        </div>
+        <div class="student-name">
+            ${student.full_name}
+        </div>
+        <div class="student-info">
+            <div class="info-row">
+                <span class="info-label">Логин</span>
+                <span><code>${student.login}</code></span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Пароль</span>
+                <span>
+                    <span class="password-field" id="pass-${student.id}">••••••••</span>
+                    <button class="btn btn-sm btn-link p-0 ms-2" onclick="togglePassword(${student.id}, '${student.password}')">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Пропуски</span>
+                <span>
+                    <span class="badge-custom badge-success">0 ч.</span>
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Статус</span>
+                <span>
+                    <span class="badge-custom badge-success">Активен</span>
+                </span>
+            </div>
+        </div>
+        <div class="student-actions">
+            <button class="btn-icon" onclick="editStudent(${student.id})" title="Редактировать">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn-icon" onclick="generatePassword(${student.id})" title="Сгенерировать пароль">
+                <i class="bi bi-arrow-repeat"></i>
+            </button>
+            <button class="btn-icon delete" onclick="deleteStudent(${student.id}, '${student.full_name}')" title="Удалить">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    studentsGrid.appendChild(newCard);
+    
+    // Обновляем нумерацию всех карточек
+    updateStudentNumbers();
+}
+
+// Функция для обновления нумерации студентов
+function updateStudentNumbers() {
+    const cards = document.querySelectorAll('.student-card');
+    cards.forEach((card, index) => {
+        const numberDiv = card.querySelector('.student-number');
+        if (numberDiv) {
+            numberDiv.textContent = index + 1;
+        }
+    });
+}
+    
+    // Отправка формы редактирования
+    document.getElementById('editStudentForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+        data.is_active = document.getElementById('editIsActive').checked;
+        
+        fetch('/elders/api/update-student/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('editStudentModal')).hide();
+                showNotification('✅ Данные обновлены');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showNotification('❌ ' + data.error, 'danger');
+            }
+        });
+    });
+    
+    // Генерация пароля для существующего студента
+    function generatePassword(studentId) {
+        if (!confirm('Сгенерировать новый пароль?')) return;
+        
+        fetch('/elders/api/generate-password/')
+            .then(r => r.json())
+            .then(data => {
+                const newPassword = data.password;
+                
+                fetch('/elders/api/update-student-password/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        password: newPassword
+                    })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(`✅ Новый пароль: ${newPassword}`);
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                });
+            });
+    }
+    
+    // Удаление студента
+    function deleteStudent(studentId, studentName) {
+        if (confirm(`Удалить студента ${studentName}?`)) {
+            fetch('/elders/api/delete-student/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ student_id: studentId })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(`✅ Студент удален`);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification('❌ Ошибка при удалении', 'danger');
+                }
+            });
+        }
+    }
+    
+    // Уведомления
+    function showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '200px';
+    notification.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    notification.innerHTML = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+function addAnotherStudent() {
+    const form = document.getElementById('addStudentForm');
+    const formData = new FormData(form);
+    
+    fetch('/elders/api/add-student/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            // Добавляем в сетку
+            addStudentToGrid(data.student);
+            // Очищаем форму, но оставляем открытой
+            form.reset();
+            // Генерируем новый пароль
+            generateRandomPassword('add');
+            showNotification('✅ Студент добавлен');
+        } else {
+            showNotification('❌ ' + data.error, 'danger');
+        }
+    });
+}
+</script>
+{% endblock %}

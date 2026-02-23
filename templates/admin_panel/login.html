@@ -1,0 +1,155 @@
+<!-- templates/admin_panel/login.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Вход в админ-панель - КФ ЖУРНАЛ{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-login-container {
+        min-height: calc(100vh - 76px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .admin-login-card {
+        max-width: 400px;
+        width: 100%;
+        padding: 40px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .admin-logo {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .admin-logo svg {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .admin-login-title {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    
+    .admin-login-title h2 {
+        font-weight: 700;
+        color: #2c3e50;
+        margin-bottom: 10px;
+    }
+    
+    .admin-login-title p {
+        color: #7f8c8d;
+    }
+    
+    .admin-login-btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: all 0.3s ease;
+    }
+    
+    .admin-login-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+    }
+    
+    .admin-login-footer {
+        margin-top: 30px;
+        text-align: center;
+        color: #95a5a6;
+    }
+    
+    .admin-login-footer a {
+        color: #667eea;
+        text-decoration: none;
+    }
+    
+    .admin-login-footer a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-login-container">
+    <div class="admin-login-card">
+        <div class="admin-logo">
+            <svg width="80" height="80" viewBox="0 0 100 100" fill="none">
+                <rect x="10" y="10" width="80" height="80" rx="20" fill="url(#gradient)"/>
+                <path d="M30 35L50 55L70 35" stroke="white" stroke-width="6" stroke-linecap="round"/>
+                <path d="M30 45L50 65L70 45" stroke="white" stroke-width="6" stroke-linecap="round"/>
+                <text x="50" y="85" text-anchor="middle" fill="white" font-family="Arial" font-size="14" font-weight="bold">ADMIN</text>
+                <defs>
+                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+            </svg>
+        </div>
+        
+        <div class="admin-login-title">
+            <h2>Админ-панель</h2>
+            <p>Управление базами данных и пользователями</p>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            {{ error }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endif %}
+        
+        <form method="post" action="{% url 'admin_login' %}">
+            {% csrf_token %}
+            <div class="form-group mb-4">
+                <label class="form-label">Логин</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" class="form-control" name="username" required placeholder="Введите логин">
+                </div>
+            </div>
+            
+            <div class="form-group mb-4">
+                <label class="form-label">Пароль</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" class="form-control" name="password" required placeholder="Введите пароль">
+                </div>
+            </div>
+            
+            <div class="form-check mb-4">
+                <input type="checkbox" class="form-check-input" id="rememberMe">
+                <label class="form-check-label" for="rememberMe">Запомнить меня</label>
+            </div>
+            
+            <button type="submit" class="admin-login-btn">
+                <i class="bi bi-shield-lock me-2"></i>
+                Войти в админ-панель
+            </button>
+        </form>
+        
+        <div class="admin-login-footer">
+            <p class="mb-0">Доступ только для администраторов системы</p>
+            <small class="text-muted">
+                <i class="bi bi-info-circle"></i>
+                Если у вас нет доступа, обратитесь к системному администратору
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+<!-- ВЕСЬ ВТОРОЙ БЛОК CONTENT УДАЛЁН! -->

@@ -1,0 +1,2149 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Админ-панель - КФ ЖУРНАЛ{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sortablejs@latest/sortablejs.min.css">
+<style>
+    /* ========== ОСНОВНАЯ СТРУКТУРА ========== */
+    .admin-wrapper {
+        display: flex;
+        height: calc(100vh - 76px);
+        background-color: #f8f9fa;
+    }
+
+    /* ========== ЛЕВАЯ КОЛОНКА ========== */
+    .databases-sidebar {
+        width: 300px;
+        background-color: white;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .databases-header {
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .databases-header h3 {
+        margin: 0;
+        color: #212529;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .databases-header p {
+        margin: 5px 0 0;
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+
+    .add-database-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px 20px;
+        margin: 15px 20px;
+        background-color: #0d6efd;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .add-database-btn:hover {
+        background-color: #0b5ed7;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(13, 110, 253, 0.3);
+    }
+
+    /* ========== ДЕРЕВО БАЗ ДАННЫХ ========== */
+    .databases-tree {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+    }
+
+    .tree-item {
+        margin-bottom: 2px;
+    }
+
+    .tree-item-header {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .tree-item-header:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+
+    .tree-item-header.active {
+        background-color: rgba(13, 110, 253, 0.2);
+        font-weight: 500;
+    }
+
+    .tree-toggle {
+        margin-right: 8px;
+        color: #6c757d;
+        transition: transform 0.2s;
+        cursor: pointer;
+        font-size: 12px;
+    }
+
+    .tree-toggle.expanded {
+        transform: rotate(90deg);
+    }
+
+    .tree-icon {
+        margin-right: 8px;
+        color: #0d6efd;
+    }
+
+    .tree-children {
+        margin-left: 24px;
+        padding-left: 12px;
+        border-left: 1px dashed #dee2e6;
+    }
+
+    /* ========== ПРАВАЯ КОЛОНКА ========== */
+    .database-content {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background-color: white;
+    }
+
+    /* ========== ПАНЕЛЬ НАВИГАЦИИ (ПРОВОДНИК) ========== */
+    .navigation-bar {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 10px 15px;
+        background-color: white;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    .navigation-buttons {
+        display: flex;
+        gap: 5px;
+    }
+
+    .nav-btn {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        color: #495057;
+        transition: all 0.2s;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+        background-color: #e9ecef;
+        border-color: #0d6efd;
+        color: #0d6efd;
+    }
+
+    .nav-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .path-breadcrumb {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        flex-wrap: wrap;
+    }
+
+    .breadcrumb-item {
+        cursor: pointer;
+        color: #0d6efd;
+    }
+
+    .breadcrumb-item:hover {
+        text-decoration: underline;
+    }
+
+    .breadcrumb-item.active {
+        color: #212529;
+        font-weight: 600;
+        cursor: default;
+    }
+
+    .breadcrumb-item.active:hover {
+        text-decoration: none;
+    }
+
+    /* ========== КНОПКА ПОИСКА ========== */
+    .search-button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 20px;
+        color: #495057;
+        transition: all 0.2s;
+    }
+
+    .search-button:hover {
+        background-color: #e9ecef;
+        border-color: #0d6efd;
+        color: #0d6efd;
+    }
+
+/* ========== АККУРАТНЫЕ КАРТОЧКИ ПАПОК ========== */
+.folders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 16px;
+}
+
+.folder-item {
+    position: relative;
+    padding: 20px 16px 16px;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.folder-item:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 8px 16px rgba(13, 110, 253, 0.08);
+    transform: translateY(-2px);
+}
+
+.folder-icon i {
+    font-size: 36px;
+    color: #0d6efd;
+    margin-bottom: 12px;
+}
+
+.folder-name {
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 8px;
+    word-break: break-word;
+    color: #212529;
+}
+
+.folder-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.folder-item:hover .folder-actions {
+    opacity: 1;
+}
+
+.folder-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: white;
+    border-radius: 6px;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.folder-btn:hover {
+    background: #f8f9fa;
+    color: #0d6efd;
+}
+
+.folder-stats {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* ========== МОДАЛЬНОЕ ОКНО ПОИСКА ========== */
+.modal-search {
+    max-width: 600px;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid #e9ecef;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-result-item:hover {
+    background-color: #f1f8ff;
+}
+
+.search-result-item i {
+    color: #0d6efd;
+    font-size: 20px;
+}
+
+.search-result-info {
+    flex: 1;
+}
+
+.search-result-name {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #212529;
+}
+
+.search-result-details {
+    font-size: 13px;
+    color: #6c757d;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.search-result-path {
+    font-size: 12px;
+    color: #6c757d;
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px dashed #e9ecef;
+}
+
+    /* ========== ОСТАЛЬНЫЕ СТИЛИ ========== */
+    .actions-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        background-color: white;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    .actions-left, .actions-right {
+        display: flex;
+        gap: 10px;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+
+    .action-btn-primary {
+        background-color: #0d6efd;
+        color: white;
+    }
+
+    .action-btn-outline {
+        background-color: transparent;
+        border-color: #dee2e6;
+        color: #212529;
+    }
+
+/* ========== УЛУЧШЕННЫЕ КАРТОЧКИ СТУДЕНТОВ ========== */
+
+.students-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+
+.student-card {
+    display: flex;
+    align-items: flex-start;
+    padding: 20px;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 16px;
+    transition: all 0.2s ease;
+    min-height: 140px;
+}
+
+.student-number {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e9ecef;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.student-avatar {
+    margin-right: 16px;
+    flex-shrink: 0;
+}
+
+.student-avatar i {
+    font-size: 48px;
+}
+
+.student-info {
+    flex: 1;
+}
+
+.student-name {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.student-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-size: 13px;
+    color: #6c757d;
+    margin-bottom: 8px;
+}
+
+.student-permissions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e9ecef;
+}
+
+.perm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: #f8f9fa;
+    border-radius: 20px;
+    font-size: 11px;
+    color: #495057;
+}
+
+.perm-badge i {
+    font-size: 12px;
+    color: #0d6efd;
+}
+
+.btn-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    color: #6c757d;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    background: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+    .badge-elder {
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: #ffc107;
+        color: #000;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-content {
+        position: relative;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        max-width: 500px;
+        width: 90%;
+        background-color: white;
+        border-radius: 12px;
+        padding: 30px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 1rem;
+    }
+
+    .logs-panel {
+        position: fixed;
+        bottom: 0;
+        right: 20px;
+        width: 600px;
+        height: 400px;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px 8px 0 0;
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+        z-index: 1050;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- ========== ЛЕВАЯ КОЛОНКА: БАЗЫ ДАННЫХ ========== -->
+    <div class="databases-sidebar">
+        <div class="databases-header">
+            <h3><i class="bi bi-database"></i> Базы данных</h3>
+            <p>Управление структурами и пользователями</p>
+        </div>
+        
+        <!-- Кнопка добавления -->
+        <button class="add-database-btn" onclick="showAddMenu()">
+            <i class="bi bi-plus-circle"></i>
+            Добавить
+        </button>
+        
+        <!-- Дерево баз данных -->
+        <div class="databases-tree" id="databaseTree">
+            {% for level in educational_levels %}
+            <div class="tree-item" data-id="{{ level.id }}" data-type="level">
+                <div class="tree-item-header">
+                    <i class="bi bi-chevron-right tree-toggle" onclick="event.stopPropagation(); toggleTreeItem(this)"></i>
+                    <i class="bi bi-database-fill tree-icon"></i>
+                    <span onclick="navigateTo('level', {{ level.id }}, '{{ level.name }}')">{{ level.name }}</span>
+                    <span class="badge bg-secondary ms-2">{{ level.student_count|default:0 }}</span>
+                </div>
+                <div class="tree-children" style="display: none;">
+                    {% for form in level.forms.all %}
+                    <div class="tree-item" data-id="{{ form.id }}" data-type="form">
+                        <div class="tree-item-header">
+                            <i class="bi bi-chevron-right tree-toggle" onclick="event.stopPropagation(); toggleTreeItem(this)"></i>
+                            <i class="bi bi-folder-fill tree-icon"></i>
+                            <span onclick="navigateTo('form', {{ form.id }}, '{{ form.name }}')">{{ form.name }}</span>
+                            <span class="badge bg-secondary ms-2">{{ form.student_count|default:0 }}</span>
+                        </div>
+                        <div class="tree-children" style="display: none;">
+                            {% for course in form.courses.all %}
+                            <div class="tree-item" data-id="{{ course.id }}" data-type="course">
+                                <div class="tree-item-header">
+                                    <i class="bi bi-chevron-right tree-toggle" onclick="event.stopPropagation(); toggleTreeItem(this)"></i>
+                                    <i class="bi bi-layers tree-icon"></i>
+                                    <span onclick="navigateTo('course', {{ course.id }}, '{{ course.number }} курс')">{{ course.number }} курс</span>
+                                    <span class="badge bg-secondary ms-2">{{ course.student_count|default:0 }}</span>
+                                </div>
+                                <div class="tree-children" style="display: none;">
+                                    {% for group in course.groups.all %}
+                                    <div class="tree-item" data-id="{{ group.id }}" data-type="group">
+                                        <div class="tree-item-header">
+                                            <i class="bi bi-people-fill tree-icon"></i>
+                                            <span onclick="navigateTo('group', {{ group.id }}, '{{ group.name }}')">{{ group.name }}</span>
+                                            <span class="badge bg-secondary ms-2">{{ group.students.count }}</span>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-database-x display-6"></i>
+                <p class="mt-2">Нет баз данных</p>
+                <button class="btn btn-sm btn-primary mt-2" onclick="openCreateModal('level')">
+                    Создать первую
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Последние логи -->
+        <div class="mt-auto p-3 border-top">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="bi bi-clock-history"></i>
+                    <strong>Последние логи</strong>
+                </div>
+                <button class="btn btn-sm btn-link text-primary" onclick="toggleLogs()">
+                    Все логи →
+                </button>
+            </div>
+            <div class="mt-2" style="max-height: 150px; overflow-y: auto;">
+                {% for log in recent_logs %}
+                <div class="small text-muted mb-1">
+                    <i class="bi bi-dot"></i>
+                    {{ log.created_at|time:"H:i" }} - {{ log.get_action_display }}: {{ log.model_name }}
+                    {% if log.user_name %}
+                    <span class="text-primary">({{ log.user_name }})</span>
+                    {% endif %}
+                </div>
+                {% empty %}
+                <div class="small text-muted">
+                    <i class="bi bi-info-circle"></i> Нет записей
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>  <!-- ЗАКРЫТИЕ ЛЕВОЙ КОЛОНКИ -->
+
+    <!-- ========== ПРАВАЯ КОЛОНКА: СОДЕРЖИМОЕ ========== -->
+    <div class="database-content">
+        <!-- Панель навигации (проводник) -->
+        <div class="navigation-bar">
+            <div class="navigation-buttons">
+                <button class="nav-btn" onclick="goBack()" id="backBtn" disabled>
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+                <button class="nav-btn" onclick="goForward()" id="forwardBtn" disabled>
+                    <i class="bi bi-arrow-right"></i>
+                </button>
+                <button class="nav-btn" onclick="goUp()" id="upBtn" disabled>
+                    <i class="bi bi-arrow-up"></i>
+                </button>
+            </div>
+            
+            <div class="path-breadcrumb" id="pathBreadcrumb">
+                <span class="breadcrumb-item active">Главная</span>
+            </div>
+            
+            <button class="search-button" onclick="openSearchModal()">
+                <i class="bi bi-search"></i>
+                <span>Поиск</span>
+            </button>
+        </div>
+        
+        <!-- Панель действий с рабочими кнопками -->
+        <div class="actions-bar">
+            <div class="actions-left">
+                <button class="action-btn action-btn-primary" onclick="showAddMenu()">
+                    <i class="bi bi-plus-circle"></i> Добавить
+                </button>
+                <div class="btn-group">
+                    <button class="action-btn action-btn-outline" onclick="importExcel()">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Импорт
+                    </button>
+                    <button class="action-btn action-btn-outline" onclick="exportData()">
+                        <i class="bi bi-download"></i> Экспорт
+                    </button>
+                </div>
+            </div>
+            
+            <div class="actions-right" id="contentActions">
+                <!-- Кнопки будут добавляться динамически через JS -->
+            </div>
+        </div>
+        
+        <!-- Меню добавления (выпадающее) -->
+        <div id="addMenu" class="dropdown-menu" style="display: none; position: absolute; background: white; border: 1px solid #dee2e6; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.15); padding: 8px 0; min-width: 260px; z-index: 1000;">
+            <!-- Содержимое меню (оставляем как есть) -->
+            <div style="padding: 12px 16px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; border-radius: 12px 12px 0 0;">
+                <i class="bi bi-plus-circle" style="color: #0d6efd;"></i>
+                <span style="font-weight: 600; margin-left: 8px;">Что добавить?</span>
+            </div>
+            
+            <!-- ОБРАЗОВАНИЕ -->
+            <div style="padding: 8px 16px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                <i class="bi bi-book" style="color: #0d6efd;"></i>
+                <span style="font-weight: 600; margin-left: 8px;">Образование</span>
+            </div>
+            <a href="#" onclick="openCreateModal('level'); hideAddMenu(); return false;" 
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-database" style="width: 20px; color: #0d6efd; margin-right: 12px;"></i>
+                <span style="flex: 1;">Уровень образования</span>
+                <span style="color: #6c757d; font-size: 12px;">Бакалавриат, Магистратура...</span>
+            </a>
+            <a href="#" onclick="openCreateModal('form', currentFolderId); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-folder" style="width: 20px; color: #ffc107; margin-right: 12px;"></i>
+                <span style="flex: 1;">Форма обучения</span>
+                <span style="color: #6c757d; font-size: 12px;">Очная, Заочная...</span>
+            </a>
+            <a href="#" onclick="openCreateModal('course', currentFolderId); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-layers" style="width: 20px; color: #198754; margin-right: 12px;"></i>
+                <span style="flex: 1;">Курс</span>
+                <span style="color: #6c757d; font-size: 12px;">1, 2, 3, 4...</span>
+            </a>
+            <a href="#" onclick="openCreateModal('group', currentFolderId); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-people" style="width: 20px; color: #6f42c1; margin-right: 12px;"></i>
+                <span style="flex: 1;">Группа</span>
+                <span style="color: #6c757d; font-size: 12px;">СПД-103, Ю-201...</span>
+            </a>
+            
+            <div style="border-top: 1px solid #dee2e6; margin: 8px 0;"></div>
+            
+            <!-- ПОЛЬЗОВАТЕЛИ -->
+            <div style="padding: 8px 16px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                <i class="bi bi-people" style="color: #198754;"></i>
+                <span style="font-weight: 600; margin-left: 8px;">Пользователи</span>
+            </div>
+            <a href="#" onclick="openCreateModal('student', currentFolderId); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-person-plus" style="width: 20px; color: #0d6efd; margin-right: 12px;"></i>
+                <span style="flex: 1;">Студент / Староста</span>
+                <span style="color: #6c757d; font-size: 12px;">В текущую группу</span>
+            </a>
+            <a href="#" onclick="openCreateModal('employee', currentFolderId); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-building" style="width: 20px; color: #6f42c1; margin-right: 12px;"></i>
+                <span style="flex: 1;">Сотрудник деканата</span>
+                <span style="color: #6c757d; font-size: 12px;">Документооборот</span>
+            </a>
+            <a href="#" onclick="openCreateModal('teacher', currentFolderId); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-mortarboard" style="width: 20px; color: #0dcaf0; margin-right: 12px;"></i>
+                <span style="flex: 1;">Преподаватель</span>
+                <span style="color: #6c757d; font-size: 12px;">Ведет предметы</span>
+            </a>
+            <a href="#" onclick="openCreateModal('department', currentFolderId); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #212529; text-decoration: none;">
+                <i class="bi bi-diagram-3" style="width: 20px; color: #dc3545; margin-right: 12px;"></i>
+                <span style="flex: 1;">Отдел / Подразделение</span>
+                <span style="color: #6c757d; font-size: 12px;">Структура ВУЗа</span>
+            </a>
+            
+            <div style="border-top: 1px solid #dee2e6; margin: 8px 0;"></div>
+            
+            <!-- КОММУНИКАЦИИ -->
+            <div style="padding: 8px 16px; background: #f8f9fa; border-bottom: 1px solid #dee2e6;">
+                <i class="bi bi-chat-dots" style="color: #dc3545;"></i>
+                <span style="font-weight: 600; margin-left: 8px;">Коммуникации</span>
+            </div>
+            <a href="#" onclick="alert('Скоро будет!'); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #6c757d; text-decoration: none; opacity: 0.7;">
+                <i class="bi bi-chat" style="width: 20px; margin-right: 12px;"></i>
+                <span style="flex: 1;">Чат группы</span>
+                <span style="color: #6c757d; font-size: 12px;">Скоро</span>
+            </a>
+            <a href="#" onclick="alert('Скоро будет!'); hideAddMenu(); return false;"
+               style="display: flex; align-items: center; padding: 10px 16px; color: #6c757d; text-decoration: none; opacity: 0.7;">
+                <i class="bi bi-megaphone" style="width: 20px; margin-right: 12px;"></i>
+                <span style="flex: 1;">Объявления</span>
+                <span style="color: #6c757d; font-size: 12px;">Скоро</span>
+            </a>
+        </div>
+        
+        <!-- Контейнер для содержимого -->
+        <div id="contentContainer">
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-folder2-open display-1"></i>
+                <h3 class="mt-3">Выберите папку в левой панели</h3>
+                <p>Здесь отобразится содержимое выбранной базы данных</p>
+            </div>
+        </div>
+    </div>  <!-- ЗАКРЫТИЕ ПРАВОЙ КОЛОНКИ -->
+</div>  <!-- ЗАКРЫТИЕ ADMIN-WRAPPER -->
+
+<!-- ========== МОДАЛЬНЫЕ ОКНА ========== -->
+<div id="searchModal" class="modal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h3><i class="bi bi-search"></i> Поиск студентов</h3>
+            <button type="button" class="modal-close" onclick="closeSearchModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <input type="text" class="form-control" id="searchQuery" 
+                       placeholder="Введите ФИО, логин или email..." autofocus>
+            </div>
+            <div id="searchResultsContainer" style="max-height: 400px; overflow-y: auto; margin-top: 20px;">
+                <!-- Результаты поиска будут здесь -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="itemModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Создание элемента</h3>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="modalBody"></div>
+    </div>
+</div>
+
+<div id="deleteModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Подтверждение удаления</h3>
+            <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="text-center py-4">
+            <i class="bi bi-exclamation-triangle-fill text-warning display-4"></i>
+            <h4 class="mt-3">Вы уверены?</h4>
+            <p class="text-muted" id="deleteMessage">Это действие нельзя отменить!</p>
+        </div>
+        <div class="d-flex gap-3">
+            <button class="action-btn action-btn-danger w-50" onclick="confirmDelete()">Удалить</button>
+            <button class="action-btn action-btn-outline w-50" onclick="closeDeleteModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<div id="passwordModal" class="modal">
+    <div class="modal-content" style="max-width: 900px; width: 95%;">
+        <div class="modal-header">
+            <h3><i class="bi bi-key"></i> Управление паролями</h3>
+            <button type="button" class="modal-close" onclick="closePasswordModal()">&times;</button>
+        </div>
+        <div class="modal-body" style="max-height: 70vh; overflow-y: auto;" id="passwordContent">
+            <!-- Содержимое будет загружено через JS -->
+        </div>
+    </div>
+</div>
+
+<div id="logsPanel" class="logs-panel" style="display: none;">
+    <div class="logs-header">
+        <h4><i class="bi bi-clock-history"></i> Журнал действий</h4>
+        <button class="btn-close" onclick="toggleLogs()"></button>
+    </div>
+    <div class="logs-content" id="logsContent">
+        <div class="text-center text-muted py-4">
+            <i class="bi bi-arrow-repeat"></i>
+            <p class="mt-2">Загрузка логов...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function closePasswordModal() {
+    document.getElementById('passwordModal').style.display = 'none';
+}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script>
+    // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
+    let navigationStack = [];
+    let currentPosition = -1;
+    let currentFolderType = null;
+    let currentFolderId = null;
+    let currentFolderName = null;
+    let currentItemToDelete = null;
+    let searchTimeout = null;
+
+    // ========== РАСКРЫТИЕ ПАПОК ==========
+    function toggleTreeItem(element) {
+        const treeItem = element.closest('.tree-item');
+        const children = treeItem.querySelector('.tree-children');
+        const toggle = treeItem.querySelector('.tree-toggle');
+        
+        if (children) {
+            if (children.style.display === 'none' || !children.style.display) {
+                children.style.display = 'block';
+                toggle.classList.add('expanded');
+            } else {
+                children.style.display = 'none';
+                toggle.classList.remove('expanded');
+            }
+        }
+    }
+
+    // ========== НАВИГАЦИЯ КАК В ПРОВОДНИКЕ ==========
+    function navigateTo(type, id, title) {
+        // Обрезаем стек если мы не в конце
+        if (currentPosition < navigationStack.length - 1) {
+            navigationStack = navigationStack.slice(0, currentPosition + 1);
+        }
+        
+        // Добавляем в историю
+        navigationStack.push({
+            type: type,
+            id: id,
+            title: title
+        });
+        
+        currentPosition = navigationStack.length - 1;
+        currentFolderType = type;
+        currentFolderId = id;
+        currentFolderName = title;
+        
+        // Загружаем содержимое
+        loadFolderContent(type, id);
+        updateNavigationButtons();
+        updateBreadcrumb();
+        expandTreeItem(type, id);
+    }
+
+    function expandTreeItem(type, id) {
+        const treeItem = document.querySelector(`.tree-item[data-id="${id}"][data-type="${type}"]`);
+        if (!treeItem) return;
+        
+        // Раскрываем все родительские папки
+        let parent = treeItem.closest('.tree-children');
+        while (parent) {
+            parent.style.display = 'block';
+            const toggle = parent.closest('.tree-item')?.querySelector('.tree-toggle');
+            if (toggle) toggle.classList.add('expanded');
+            parent = parent.parentElement?.closest('.tree-children');
+        }
+        
+        // Подсвечиваем текущий элемент
+        document.querySelectorAll('.tree-item-header.active').forEach(el => {
+            el.classList.remove('active');
+        });
+        
+        const header = treeItem.querySelector('.tree-item-header');
+        if (header) header.classList.add('active');
+    }
+
+    function goBack() {
+        if (currentPosition > 0) {
+            currentPosition--;
+            const item = navigationStack[currentPosition];
+            currentFolderType = item.type;
+            currentFolderId = item.id;
+            currentFolderName = item.title;
+            loadFolderContent(item.type, item.id);
+            updateNavigationButtons();
+            updateBreadcrumb();
+            expandTreeItem(item.type, item.id);
+        }
+    }
+
+    function goForward() {
+        if (currentPosition < navigationStack.length - 1) {
+            currentPosition++;
+            const item = navigationStack[currentPosition];
+            currentFolderType = item.type;
+            currentFolderId = item.id;
+            currentFolderName = item.title;
+            loadFolderContent(item.type, item.id);
+            updateNavigationButtons();
+            updateBreadcrumb();
+            expandTreeItem(item.type, item.id);
+        }
+    }
+
+    function goUp() {
+        if (currentFolderType && currentFolderId) {
+            fetch(`/admin-panel/api/folder-content/?type=${currentFolderType}&id=${currentFolderId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.path && data.path.length > 1) {
+                        const parent = data.path[data.path.length - 2];
+                        navigateTo(parent.type, parent.id, parent.name);
+                    }
+                });
+        }
+    }
+
+    function jumpToHistory(index) {
+        if (index >= 0 && index < navigationStack.length) {
+            const item = navigationStack[index];
+            navigationStack = navigationStack.slice(0, index + 1);
+            currentPosition = index;
+            currentFolderType = item.type;
+            currentFolderId = item.id;
+            currentFolderName = item.title;
+            loadFolderContent(item.type, item.id);
+            updateNavigationButtons();
+            updateBreadcrumb();
+            expandTreeItem(item.type, item.id);
+        }
+    }
+
+    function updateNavigationButtons() {
+        const backBtn = document.getElementById('backBtn');
+        const forwardBtn = document.getElementById('forwardBtn');
+        const upBtn = document.getElementById('upBtn');
+        
+        if (backBtn) backBtn.disabled = currentPosition <= 0;
+        if (forwardBtn) forwardBtn.disabled = currentPosition >= navigationStack.length - 1;
+        if (upBtn) upBtn.disabled = !currentFolderType || !currentFolderId;
+    }
+
+    function updateBreadcrumb() {
+        const breadcrumb = document.getElementById('pathBreadcrumb');
+        if (!breadcrumb) return;
+        
+        if (navigationStack.length === 0) {
+            breadcrumb.innerHTML = '<span class="breadcrumb-item active">Главная</span>';
+            return;
+        }
+        
+        let html = '<span class="breadcrumb-item" onclick="jumpToHistory(-1)">Главная</span>';
+        
+        for (let i = 0; i < navigationStack.length; i++) {
+            html += ' <i class="bi bi-chevron-right"></i> ';
+            if (i === navigationStack.length - 1) {
+                html += `<span class="breadcrumb-item active">${navigationStack[i].title}</span>`;
+            } else {
+                html += `<span class="breadcrumb-item" onclick="jumpToHistory(${i})">${navigationStack[i].title}</span>`;
+            }
+        }
+        
+        breadcrumb.innerHTML = html;
+    }
+
+    // ========== ПОИСК ==========
+    function openSearchModal() {
+        const modal = document.getElementById('searchModal');
+        modal.style.display = 'block';
+        document.getElementById('searchQuery').focus();
+        document.getElementById('searchResultsContainer').innerHTML = '';
+    }
+
+    function closeSearchModal() {
+        document.getElementById('searchModal').style.display = 'none';
+    }
+
+    function performSearch() {
+        const query = document.getElementById('searchQuery').value.trim();
+        const resultsContainer = document.getElementById('searchResultsContainer');
+        
+        if (query.length < 2) {
+            resultsContainer.innerHTML = '<div class="text-center text-muted py-4">Введите минимум 2 символа</div>';
+            return;
+        }
+        
+        resultsContainer.innerHTML = '<div class="text-center py-4"><div class="spinner-border"></div><p>Поиск...</p></div>';
+        
+        fetch(`/admin-panel/api/search/?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.results && data.results.length > 0) {
+                    let html = `<div class="mb-2">Найдено: <strong>${data.count}</strong></div>`;
+                    
+                    data.results.forEach(student => {
+                        html += `
+                            <div class="search-result-item" onclick="navigateToStudent(${student.id})">
+                                <i class="bi bi-person-circle fs-4"></i>
+                                <div class="search-result-info">
+                                    <div class="search-result-name">
+                                        ${student.full_name}
+                                        ${student.is_elder ? '<span class="badge-elder ms-2">Староста</span>' : ''}
+                                    </div>
+                                    <div class="search-result-path">
+                                        <i class="bi bi-box-arrow-in-right"></i> ${student.login} |
+                                        <i class="bi bi-envelope"></i> ${student.email || '—'}
+                                    </div>
+                                    <div class="search-result-path">
+                                        <i class="bi bi-folder"></i> ${student.path || 'Нет группы'}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    resultsContainer.innerHTML = html;
+                } else {
+                    resultsContainer.innerHTML = '<div class="text-center text-muted py-4">Ничего не найдено</div>';
+                }
+            })
+            .catch(error => {
+                resultsContainer.innerHTML = '<div class="alert alert-danger">Ошибка поиска</div>';
+            });
+    }
+
+    // ========== ЗАГРУЗКА КОНТЕНТА ==========
+    function loadFolderContent(type, id) {
+        const container = document.getElementById('contentContainer');
+        
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3">Загрузка данных...</p></div>';
+        
+        fetch(`/admin-panel/api/folder-content/?type=${type}&id=${id}`)
+            .then(response => response.json())
+            .then(data => {
+                renderFolderContent(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки данных</div>';
+            });
+    }
+
+    function renderFolderContent(data) {
+        const container = document.getElementById('contentContainer');
+        
+        if (data.type === 'group') {
+            renderStudentsGrid(data.items || [], container);
+        } else {
+            renderFoldersGrid(data.items || [], data.type, container);
+        }
+    }
+
+    function renderFoldersGrid(items, parentType, container) {
+        if (!items || items.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-folder2-open display-1 text-muted"></i>
+                    <h4 class="mt-3">Папка пуста</h4>
+                    <p class="text-muted">Нажмите "Добавить" чтобы создать новый элемент</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="folders-grid">';
+        
+        items.forEach(item => {
+            html += `
+                <div class="folder-item" ondblclick="navigateTo('${item.type}', ${item.id}, '${item.name}')">
+                    <div class="folder-icon">
+                        <i class="${item.icon || 'bi-folder'}"></i>
+                    </div>
+                    <div class="folder-name">${item.name}</div>
+                    <div class="folder-actions">
+                        <button class="folder-btn" onclick="event.stopPropagation(); renameFolder('${item.type}', ${item.id}, this)">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="folder-btn" onclick="event.stopPropagation(); openDeleteModal('${item.type}', ${item.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <div class="folder-stats">
+                        <span class="badge bg-secondary">${item.count || 0}</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function renderStudentsGrid(students, container) {
+        if (!students || students.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-people display-1 text-muted"></i>
+                    <h4 class="mt-3">В группе нет студентов</h4>
+                    <p class="text-muted">Нажмите "Добавить студента" чтобы создать первую запись</p>
+                    <button class="btn btn-primary mt-3" onclick="openCreateModal('student', ${currentFolderId})">
+                        <i class="bi bi-person-plus"></i> Добавить студента
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        const sortedStudents = [...students].sort((a, b) => 
+            (a.full_name || '').localeCompare(b.full_name || '', 'ru')
+        );
+        
+        let html = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="badge bg-primary">Всего студентов: ${sortedStudents.length}</span>
+            </div>
+            <div class="students-grid">
+        `;
+        
+        sortedStudents.forEach((student, index) => {
+            // Определяем иконку в зависимости от типа
+            let typeIcon = 'bi-person-circle';
+            let typeColor = '#6c757d';
+            
+            switch(student.user_type) {
+                case 'elder':
+                    typeIcon = 'bi-star-fill';
+                    typeColor = '#ffc107';
+                    break;
+                case 'dean':
+                    typeIcon = 'bi-building';
+                    typeColor = '#6f42c1';
+                    break;
+                case 'teacher':
+                    typeIcon = 'bi-mortarboard';
+                    typeColor = '#0dcaf0';
+                    break;
+                case 'admin':
+                    typeIcon = 'bi-shield-lock';
+                    typeColor = '#dc3545';
+                    break;
+            }
+            
+            html += `
+                <div class="student-card">
+                    <div class="student-number">${index + 1}</div>
+                    <div class="student-avatar">
+                        <i class="bi ${typeIcon}" style="color: ${typeColor};"></i>
+                    </div>
+                    <div class="student-info">
+                        <div class="student-name">
+                            ${student.full_name || 'Без имени'}
+                            <span class="badge" style="background: ${typeColor}; color: white; font-size: 11px;">
+                                ${getUserTypeName(student.user_type)}
+                            </span>
+                            ${student.is_elder ? '<span class="badge-elder">Староста</span>' : ''}
+                        </div>
+                        <div class="student-details">
+                            <span><i class="bi bi-box-arrow-in-right"></i> ${student.login || ''}</span>
+                            ${student.email ? `<span><i class="bi bi-envelope"></i> ${student.email}</span>` : ''}
+                            ${student.phone ? `<span><i class="bi bi-telephone"></i> ${student.phone}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="student-actions">
+                        <button class="btn-icon" onclick="event.stopPropagation(); openEditModal('student', ${student.id})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn-icon" onclick="event.stopPropagation(); openDeleteModal('student', ${student.id})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // ========== ПЕРЕИМЕНОВАНИЕ ==========
+    function renameFolder(type, id, button) {
+        const folderItem = button.closest('.folder-item');
+        const folderName = folderItem.querySelector('.folder-name');
+        const oldName = folderName.textContent.trim();
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = oldName;
+        input.className = 'form-control form-control-sm';
+        input.style.width = '100%';
+        
+        folderName.innerHTML = '';
+        folderName.appendChild(input);
+        input.focus();
+        
+        input.addEventListener('blur', () => {
+            saveRename(type, id, input.value, folderName, oldName);
+        });
+        
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveRename(type, id, input.value, folderName, oldName);
+            }
+        });
+    }
+
+    // Функция для получения названия типа
+    function getUserTypeName(type) {
+        const names = {
+            'student': 'Студент',
+            'elder': 'Староста',
+            'dean': 'Деканат',
+            'department': 'Отдел',
+            'teacher': 'Преподаватель',
+            'admin': 'Администратор'
+        };
+        return names[type] || type;
+    }
+
+    function saveRename(type, id, newName, element, oldName) {
+        fetch('/admin-panel/api/rename/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                type: type,
+                id: id,
+                name: newName
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                element.innerHTML = newName;
+                showNotification(`✅ Переименовано в "${newName}"`, 'success');
+                
+                if (currentFolderType && currentFolderId) {
+                    loadFolderContent(currentFolderType, currentFolderId);
+                }
+            } else {
+                element.innerHTML = oldName;
+                showNotification('❌ Ошибка при переименовании', 'danger');
+            }
+        });
+    }
+
+    // ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
+    
+    function showAddMenu() {
+        const menu = document.getElementById('addMenu');
+        const button = document.querySelector('.action-btn-primary');
+        
+        menu.style.display = 'block';
+        
+        if (button) {
+            const rect = button.getBoundingClientRect();
+            menu.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+            menu.style.left = (rect.left + window.scrollX) + 'px';
+        }
+        
+        setTimeout(() => {
+            document.addEventListener('click', hideAddMenuOnClickOutside);
+        }, 10);
+    }
+
+    function hideAddMenu() {
+        const menu = document.getElementById('addMenu');
+        menu.style.display = 'none';
+        document.removeEventListener('click', hideAddMenuOnClickOutside);
+    }
+
+    function hideAddMenuOnClickOutside(event) {
+        const menu = document.getElementById('addMenu');
+        const button = document.querySelector('.action-btn-primary');
+        
+        if (!menu.contains(event.target) && !button.contains(event.target)) {
+            hideAddMenu();
+        }
+    }
+
+    function openCreateModal(type, parentId = null) {
+        const modal = document.getElementById('itemModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        modalTitle.textContent = `Создание ${getTypeName(type)}`;
+        modalBody.innerHTML = generateCreateForm(type, parentId);
+        modal.style.display = 'block';
+        hideAddMenu();
+    }
+
+    function openEditModal(type, id) {
+        const modal = document.getElementById('itemModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        
+        modalTitle.textContent = `Редактирование ${getTypeName(type)}`;
+        modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-3">Загрузка данных...</p></div>';
+        modal.style.display = 'block';
+        
+        const url = type === 'student' 
+    ? `/admin-panel/api/student/${id}/`
+    : `/admin-panel/api/folder-content/?type=${type}&id=${id}`;
+        
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('Ошибка сети');
+                return response.json();
+            })
+            .then(data => {
+                modalBody.innerHTML = generateEditForm(type, data);
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                modalBody.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="bi bi-exclamation-triangle-fill text-danger display-4"></i>
+                        <h4 class="mt-3 text-danger">Ошибка загрузки данных</h4>
+                        <p class="text-muted">Не удалось загрузить информацию</p>
+                        <button class="btn btn-primary mt-3" onclick="closeModal()">Закрыть</button>
+                    </div>
+                `;
+            });
+    }
+
+    function openDeleteModal(type, id) {
+        const modal = document.getElementById('deleteModal');
+        const deleteMessage = document.getElementById('deleteMessage');
+        currentItemToDelete = { type, id };
+        deleteMessage.textContent = `Вы действительно хотите удалить ${getTypeName(type)}? Это действие нельзя отменить!`;
+        modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('itemModal').style.display = 'none';
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').style.display = 'none';
+        currentItemToDelete = null;
+    }
+
+    function confirmDelete() {
+        if (!currentItemToDelete) return;
+        
+        const deleteBtn = document.querySelector('#deleteModal .action-btn-danger');
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Удаление...';
+        deleteBtn.disabled = true;
+        
+        fetch('/admin-panel/api/delete/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(currentItemToDelete)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeDeleteModal();
+                if (currentFolderType && currentFolderId) {
+                    loadFolderContent(currentFolderType, currentFolderId);
+                }
+                showNotification('✅ Элемент успешно удален', 'success');
+            } else {
+                showNotification('❌ Ошибка при удалении: ' + (data.error || 'Неизвестная ошибка'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('❌ Ошибка сети при удалении', 'danger');
+        })
+        .finally(() => {
+            deleteBtn.innerHTML = originalText;
+            deleteBtn.disabled = false;
+        });
+    }
+
+    // ========== ГЕНЕРАЦИЯ ФОРМ СОЗДАНИЯ ==========
+    function generateCreateForm(type, parentId) {
+        switch(type) {
+            case 'level':
+                return `
+                    <form id="createForm" onsubmit="submitCreateForm(event, 'level')">
+                        <div class="form-group">
+                            <label>🎓 Название уровня образования</label>
+                            <input type="text" class="form-control" name="name" required 
+                                   placeholder="Например: Бакалавриат, Магистратура, Специалитет">
+                        </div>
+                        <div class="form-group">
+                            <label>🔢 Порядок сортировки</label>
+                            <input type="number" class="form-control" name="order" value="1" min="1">
+                            <small class="text-muted">Чем меньше число, тем выше в списке</small>
+                        </div>
+                        <button type="submit" class="action-btn action-btn-primary w-100 mt-3">
+                            <i class="bi bi-check-circle"></i> Создать уровень
+                        </button>
+                    </form>
+                `;
+                
+            case 'form':
+                return `
+                    <form id="createForm" onsubmit="submitCreateForm(event, 'form', ${parentId})">
+                        <div class="form-group">
+                            <label>📚 Форма обучения</label>
+                            <input type="text" class="form-control" name="name" required 
+                                   placeholder="Очная форма, Заочная форма, Очно-заочная форма">
+                        </div>
+                        <div class="form-group">
+                            <label>🔢 Порядок сортировки</label>
+                            <input type="number" class="form-control" name="order" value="1" min="1">
+                        </div>
+                        <button type="submit" class="action-btn action-btn-primary w-100 mt-3">
+                            <i class="bi bi-check-circle"></i> Создать форму
+                        </button>
+                    </form>
+                `;
+                
+            case 'course':
+                return `
+                    <form id="createForm" onsubmit="submitCreateForm(event, 'course', ${parentId})">
+                        <div class="form-group">
+                            <label>📖 Номер курса</label>
+                            <input type="number" class="form-control" name="number" required 
+                                   min="1" max="6" placeholder="1">
+                        </div>
+                        <button type="submit" class="action-btn action-btn-primary w-100 mt-3">
+                            <i class="bi bi-check-circle"></i> Создать курс
+                        </button>
+                    </form>
+                `;
+                
+            case 'group':
+                return `
+                    <form id="createForm" onsubmit="submitCreateForm(event, 'group', ${parentId})">
+                        <div class="form-group">
+                            <label>👥 Название группы</label>
+                            <input type="text" class="form-control" name="name" required 
+                                   placeholder="Например: СПД-103, Ю-201, ПД-101">
+                        </div>
+                        <div class="alert alert-info mt-2 mb-3 py-2">
+                            <small>
+                                <i class="bi bi-info-circle"></i>
+                                Группа будет создана в текущем курсе
+                            </small>
+                        </div>
+                        <button type="submit" class="action-btn action-btn-primary w-100 mt-3">
+                            <i class="bi bi-check-circle"></i> Создать группу
+                        </button>
+                    </form>
+                `;
+                
+            case 'student':
+                return `
+                    <form id="createForm" onsubmit="submitCreateForm(event, 'student', ${parentId})">
+                        <div class="form-group">
+                            <label>👤 ФИО</label>
+                            <input type="text" class="form-control" name="full_name" required 
+                                   placeholder="Иванов Иван Иванович" id="studentFullName">
+                        </div>
+                        <div class="form-group">
+                            <label>🔐 Логин</label>
+                            <input type="text" class="form-control" name="login" required 
+                                   placeholder="ivanov.ii" id="studentLogin">
+                        </div>
+                        <div class="form-group">
+                            <label>📧 Email</label>
+                            <input type="email" class="form-control" name="email" 
+                                   placeholder="student@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label>📱 Телефон</label>
+                            <input type="tel" class="form-control" name="phone" 
+                                   placeholder="+7 (999) 123-45-67">
+                        </div>
+                        <div class="form-group">
+                            <label>👥 Тип пользователя</label>
+                            <select class="form-control" name="user_type">
+                                <option value="student">🎓 Студент</option>
+                                <option value="elder">⭐ Староста</option>
+                                <option value="dean">🏛️ Деканат</option>
+                                <option value="department">📋 Отдел</option>
+                                <option value="teacher">👨‍🏫 Преподаватель</option>
+                                <option value="admin">🛠️ Администратор</option>
+                            </select>
+                        </div>
+                        <div class="alert alert-info mt-2">
+                            <small>
+                                <i class="bi bi-info-circle"></i>
+                                Пароль будет сгенерирован автоматически
+                            </small>
+                        </div>
+                        <button type="submit" class="action-btn action-btn-primary w-100 mt-3">
+                            <i class="bi bi-check-circle"></i> Создать пользователя
+                        </button>
+                    </form>
+                    <script>
+                        document.getElementById('studentFullName')?.addEventListener('input', function(e) {
+                            const name = e.target.value;
+                            const loginInput = document.getElementById('studentLogin');
+                            if (name && !loginInput.value) {
+                                const translit = {
+                                    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e',
+                                    'ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k',
+                                    'л':'l','м':'m','н':'n','о':'o','п':'p','р':'r',
+                                    'с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts',
+                                    'ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'',
+                                    'э':'e','ю':'yu','я':'ya'
+                                };
+                                let login = name.toLowerCase()
+                                    .split(' ')
+                                    .map((part, i) => {
+                                        let trans = '';
+                                        for (let char of part) {
+                                            trans += translit[char] || char;
+                                        }
+                                        return i === 0 ? trans : trans[0];
+                                    })
+                                    .join('.');
+                                loginInput.value = login;
+                            }
+                        });
+                    <\/script>
+                `;
+                
+            default:
+                return `
+                    <div class="text-center py-4">
+                        <i class="bi bi-tools display-4 text-muted"></i>
+                        <p class="mt-3 text-muted">Форма для типа "${type}" в разработке</p>
+                    </div>
+                `;
+        }
+    }
+
+    function generateEditForm(type, data) {
+        if (type === 'student') {
+            const isElder = data.user_type === 'elder' || data.is_elder;
+            
+            return `
+                <form id="editForm" onsubmit="submitEditForm(event, 'student', ${data.id})">
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="bi bi-person"></i> Основная информация
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label>👤 ФИО</label>
+                                <input type="text" class="form-control" name="full_name" 
+                                       value="${data.full_name || ''}" required>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>🔐 Логин</label>
+                                        <input type="text" class="form-control" name="login" 
+                                               value="${data.login || ''}" required 
+                                               placeholder="Логин для входа">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>🔑 Пароль</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" name="password" 
+                                                   id="password-${data.id}" value="${data.password || ''}" 
+                                                   placeholder="Пароль для входа">
+                                            <button class="btn btn-outline-secondary" type="button" 
+                                                    onclick="togglePasswordVisibility(${data.id})">
+                                                <i class="bi bi-eye" id="eye-${data.id}"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" type="button" 
+                                                    onclick="generatePasswordForStudent(${data.id})">
+                                                <i class="bi bi-arrow-repeat"></i>
+                                            </button>
+                                        </div>
+                                        <small class="text-muted">Пароль виден только администраторам</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>📧 Email</label>
+                                        <input type="email" class="form-control" name="email" 
+                                               value="${data.email || ''}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>📱 Телефон</label>
+                                        <input type="tel" class="form-control" name="phone" 
+                                               value="${data.phone || ''}">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>👥 Тип пользователя</label>
+                                        <select class="form-control" name="user_type" id="user-type-${data.id}">
+                                            <option value="student" ${data.user_type === 'student' ? 'selected' : ''}>🎓 Студент</option>
+                                            <option value="elder" ${data.user_type === 'elder' ? 'selected' : ''}>⭐ Староста</option>
+                                            <option value="dean" ${data.user_type === 'dean' ? 'selected' : ''}>🏛️ Деканат</option>
+                                            <option value="department" ${data.user_type === 'department' ? 'selected' : ''}>📋 Отдел</option>
+                                            <option value="teacher" ${data.user_type === 'teacher' ? 'selected' : ''}>👨‍🏫 Преподаватель</option>
+                                            <option value="admin" ${data.user_type === 'admin' ? 'selected' : ''}>🛠️ Администратор</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mt-4">
+                                        <input type="checkbox" class="form-check-input" name="is_active" id="isActive" 
+                                               ${data.is_active ? 'checked' : ''}>
+                                        <label class="form-check-label" for="isActive">✅ Активен</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="elder-permissions-${data.id}" style="display: ${isElder ? 'block' : 'none'};">
+                        <div class="card mb-3 border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <i class="bi bi-star-fill"></i> Расширенные права старосты
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_add_students" id="perm_add_students"
+                                                   ${data.permissions?.add_students ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_add_students">➕ Добавление студентов</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_edit_students" id="perm_edit_students"
+                                                   ${data.permissions?.edit_students ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_edit_students">✏️ Редактирование студентов</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_delete_students" id="perm_delete_students"
+                                                   ${data.permissions?.delete_students ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_delete_students">🗑️ Удаление студентов</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_manage_schedule" id="perm_manage_schedule"
+                                                   ${data.permissions?.manage_schedule ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_manage_schedule">📅 Управление расписанием</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_manage_attendance" id="perm_manage_attendance"
+                                                   ${data.permissions?.manage_attendance ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_manage_attendance">✅ Учет посещаемости</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_manage_grades" id="perm_manage_grades"
+                                                   ${data.permissions?.manage_grades ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_manage_grades">📊 Управление оценками</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_create_chat" id="perm_create_chat"
+                                                   ${data.permissions?.create_chat ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_create_chat">💬 Создание чатов</label>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input type="checkbox" class="form-check-input" name="perm_export_reports" id="perm_export_reports"
+                                                   ${data.permissions?.export_reports ? 'checked' : ''}>
+                                            <label class="form-check-label" for="perm_export_reports">📄 Экспорт отчетов</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group mt-3">
+                                    <label>Максимум студентов в группе</label>
+                                    <input type="number" class="form-control" name="max_students" 
+                                           value="${data.permissions?.max_students || 100}" min="1" max="500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="action-btn action-btn-primary w-100 mt-3">
+                        <i class="bi bi-check-circle"></i> Сохранить изменения
+                    </button>
+                </form>
+                
+                <script>
+                    document.getElementById('user-type-${data.id}')?.addEventListener('change', function(e) {
+                        const permissionsDiv = document.getElementById('elder-permissions-${data.id}');
+                        if (e.target.value === 'elder') {
+                            permissionsDiv.style.display = 'block';
+                        } else {
+                            permissionsDiv.style.display = 'none';
+                        }
+                    });
+                <\/script>
+            `;
+        }
+        return '<p class="text-center text-muted py-4">Редактирование в разработке</p>';
+    }
+
+    function togglePasswordVisibility(studentId) {
+        const passwordInput = document.getElementById(`password-${studentId}`);
+        const eyeIcon = document.getElementById(`eye-${studentId}`);
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            eyeIcon.classList.remove('bi-eye');
+            eyeIcon.classList.add('bi-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            eyeIcon.classList.remove('bi-eye-slash');
+            eyeIcon.classList.add('bi-eye');
+        }
+    }
+
+    function generatePasswordForStudent(studentId) {
+        if (!confirm('Сгенерировать новый случайный пароль?')) {
+            return;
+        }
+        
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let newPassword = '';
+        for (let i = 0; i < 8; i++) {
+            newPassword += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        
+        const passwordInput = document.getElementById(`password-${studentId}`);
+        if (passwordInput) {
+            passwordInput.value = newPassword;
+            showNotification('✅ Новый пароль сгенерирован', 'success');
+        }
+    }
+
+    function submitCreateForm(event, type, parentId) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        data.type = type;
+        
+        if (parentId) {
+            if (type === 'student') data.group_id = parentId;
+            if (type === 'form') data.level_id = parentId;
+            if (type === 'course') data.form_id = parentId;
+            if (type === 'group') data.course_id = parentId;
+        }
+        
+        fetch('/admin-panel/api/create/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeModal();
+                if (currentFolderType && currentFolderId) {
+                    loadFolderContent(currentFolderType, currentFolderId);
+                } else {
+                    location.reload();
+                }
+                showNotification('✅ Элемент успешно создан', 'success');
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        });
+    }
+
+    function submitEditForm(event, type, id) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        
+        data.type = type;
+        data.id = id;
+        
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Сохранение...';
+        submitBtn.disabled = true;
+        
+        fetch('/admin-panel/api/update/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка сети');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                closeModal();
+                if (currentFolderType && currentFolderId) {
+                    loadFolderContent(currentFolderType, currentFolderId);
+                }
+                showNotification('✅ Изменения сохранены!', 'success');
+            } else {
+                showNotification('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('❌ Ошибка при сохранении', 'danger');
+        })
+        .finally(() => {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    }
+
+    function toggleLogs() {
+        const panel = document.getElementById('logsPanel');
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            loadLogs();
+        } else {
+            panel.style.display = 'none';
+        }
+    }
+
+    function loadLogs() {
+        const container = document.getElementById('logsContent');
+        fetch('/admin-panel/api/action-logs/')
+            .then(response => response.json())
+            .then(data => {
+                let html = '<div class="logs-list">';
+                (data.logs || []).forEach(log => {
+                    html += `<div class="log-entry"><small>${log.time}</small><div><strong>${log.user}</strong> ${log.action}</div></div>`;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            });
+    }
+
+    function showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
+        notification.style.zIndex = '9999';
+        notification.innerHTML = message;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+
+    function getTypeName(type) {
+        const names = {
+            'level': 'уровня образования',
+            'form': 'формы обучения',
+            'course': 'курса',
+            'group': 'группы',
+            'student': 'студента'
+        };
+        return names[type] || type;
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function importExcel() { alert('Импорт из Excel будет доступен в следующей версии'); }
+    function exportData() { alert('Экспорт данных будет доступен в следующей версии'); }
+    function navigateToStudent(studentId) { 
+        closeSearchModal();
+        alert('Переход к студенту будет доступен в следующей версии');
+    }
+
+    // ========== ИНИЦИАЛИЗАЦИЯ ========== (ее нет)
+    
+
+    // ========== UNDO/REDO ==========
+    let actionHistory = [];
+    let currentActionIndex = -1;
+
+    function undoAction() {
+    showNotification('Функция "Отмена" в разработке', 'info');
+}
+
+function redoAction() {
+    showNotification('Функция "Повтор" в разработке', 'info');
+}
+
+
+    function clearCache() {
+    if (confirm('🗑️ Очистить кэш? Это действие нельзя отменить!')) {
+        fetch('/admin-panel/api/clear-cache/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('✅ Кэш успешно очищен', 'success');
+                localStorage.clear();
+                sessionStorage.clear();
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showNotification('❌ Ошибка при очистке кэша', 'danger');
+            }
+        });
+    }
+}
+
+
+
+    function openPasswordManager() {
+        const modal = document.getElementById('passwordModal');
+        const content = document.getElementById('passwordContent');
+        
+        content.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p>Загрузка паролей...</p></div>';
+        modal.style.display = 'block';
+        
+        fetch('/admin-panel/api/passwords/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    content.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                    return;
+                }
+                
+                if (data.passwords && data.passwords.length > 0) {
+                    let html = `
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>ФИО</th>
+                                        <th>Логин</th>
+                                        <th>Пароль</th>
+                                        <th>Тип</th>
+                                        <th>Группа</th>
+                                        <th>Действия</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    
+                    data.passwords.forEach(user => {
+                        html += `
+                            <tr>
+                                <td>${user.id}</td>
+                                <td>${user.full_name}</td>
+                                <td><code>${user.login}</code></td>
+                                <td>
+                                    <span class="password-field" id="pass-${user.id}">
+                                        ••••••••
+                                    </span>
+                                    <button class="btn btn-sm btn-link" onclick="togglePassword(${user.id}, '${user.password}')">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-link" onclick="copyPassword('${user.password}')">
+                                        <i class="bi bi-files"></i>
+                                    </button>
+                                </td>
+                                <td><span class="badge bg-info">${user.user_type}</span></td>
+                                <td>${user.group}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-warning" onclick="generatePassword(${user.id})">
+                                        <i class="bi bi-arrow-repeat"></i> Новый
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<div class="alert alert-info">Нет пользователей</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                content.innerHTML = `<div class="alert alert-danger">Ошибка загрузки: ${error.message}</div>`;
+            });
+    }
+
+    function togglePassword(userId, password) {
+        const field = document.getElementById(`pass-${userId}`);
+        if (field.textContent === '••••••••') {
+            field.textContent = password;
+        } else {
+            field.textContent = '••••••••';
+        }
+    }
+
+    function copyPassword(password) {
+        navigator.clipboard.writeText(password).then(() => {
+            showNotification('✅ Пароль скопирован', 'success');
+        }).catch(() => {
+            showNotification('❌ Ошибка копирования', 'danger');
+        });
+    }
+
+    function generatePassword(studentId) {
+        if (!confirm('Сгенерировать новый пароль? Старый пароль будет утерян.')) {
+            return;
+        }
+        
+        fetch('/admin-panel/api/generate-password/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({student_id: studentId})
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showNotification(`✅ Новый пароль для ${data.student_name}: ${data.new_password}`, 'success');
+                const field = document.getElementById(`pass-${studentId}`);
+                if (field) {
+                    field.setAttribute('onclick', `togglePassword(${studentId}, '${data.new_password}')`);
+                    field.textContent = '••••••••';
+                }
+            } else {
+                showNotification('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('❌ Ошибка при генерации пароля', 'danger');
+        });
+    }
+</script>
+{% endblock %}

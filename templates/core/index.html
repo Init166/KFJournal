@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}КФ ЖУРНАЛ - Главная{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-8">
+        <!-- Заголовок и приветствие -->
+        <div class="text-center mb-5">
+            <h1 class="welcome-title display-4 fw-bold mb-4">КФ ЖУРНАЛ</h1>
+            <p class="welcome-subtitle lead">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor 
+                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud 
+                exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+            </p>
+        </div>
+
+        <!-- Приветственное сообщение -->
+        <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-emoji-smile fs-4 me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Welcome! Добро пожаловать!</h5>
+                    <p class="mb-0">Система управления учебным процессом для студентов и старост</p>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- Карточки выбора роли -->
+        <div class="row mt-5 g-4">
+            <!-- Карточка студента -->
+            <div class="col-md-6">
+                <div class="role-card p-4 p-lg-5 text-center h-100">
+                    <i class="role-icon student-icon bi bi-person-circle"></i>
+                    <h2 class="h1 fw-bold mb-3">Я студент</h2>
+                    <p class="text-muted mb-4">
+                        Получите доступ к своему расписанию, оценкам, учебным материалам 
+                        и персональной статистике успеваемости. Отслеживайте прогресс 
+                        и будьте в курсе всех учебных событий.
+                    </p>
+                    <div class="mt-4">
+                        <a href="/students/login/" class="btn btn-primary btn-role px-5">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>
+                            Войти как студент
+                        </a>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Требуется авторизация
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Карточка старосты -->
+            <div class="col-md-6">
+                <div class="role-card p-4 p-lg-5 text-center h-100">
+                    <i class="role-icon elder-icon bi bi-person-badge"></i>
+                    <h2 class="h1 fw-bold mb-3">Я староста</h2>
+                    <p class="text-muted mb-4">
+                        Управляйте учебной группой, ведите журнал посещаемости, 
+                        отслеживайте успеваемость и формируйте отчеты. Полный набор 
+                        инструментов для эффективной организации учебного процесса.
+                    </p>
+                    <div class="mt-4">
+                        <a href="/elders/login/" class="btn btn-success btn-role px-5">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>
+                            Войти как староста
+                        </a>
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-shield-lock me-1"></i>
+                            Доступ только для подтвержденных старост
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Дополнительная информация -->
+        <div class="row mt-5 pt-5">
+            <div class="col-12">
+                <div class="card border-0 bg-light">
+                    <div class="card-body p-4">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="card-title mb-2">
+                                    <i class="bi bi-question-circle text-primary me-2"></i>
+                                    Нужна помощь?
+                                </h5>
+                                <p class="card-text text-muted mb-0">
+                                    Если у вас возникли проблемы с доступом или работой в системе, 
+                                    обратитесь к системному администратору или в учебную часть.
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                <a href="{% url 'page_404' %}" class="btn btn-outline-danger">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>
+                                    Тест 404 страницы
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

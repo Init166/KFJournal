@@ -1,0 +1,181 @@
+<!-- templates/students/dashboard.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load student_extras %}
+
+{% block title %}Личный кабинет{% endblock %}
+
+{% block content %}
+<div>
+    <!-- Приветствие с прогресс-баром -->
+    <div class="card-custom mb-4" style="background: linear-gradient(135deg, #0d6efd, #0b5ed7); color: white;">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h1 class="h2 fw-bold mb-2">Здравствуйте, {{ student.full_name }}!</h1>
+                <p class="mb-0 opacity-75">
+                    <i class="bi bi-building me-2"></i>Группа: <strong>{{ student.group.name|default:"Не указана" }}</strong>
+                </p>
+                {% if student.user_type == 'elder' %}
+                <span class="badge-custom badge-warning mt-2">
+                    <i class="bi bi-star-fill"></i> Староста
+                </span>
+                {% endif %}
+            </div>
+            <div class="text-md-end">
+                <div class="display-4 fw-bold">{{ remaining }}/20</div>
+                <p class="mb-0 opacity-75">часов осталось</p>
+            </div>
+        </div>
+        <div class="progress-custom mt-3">
+            <div class="progress-fill" style="width: {{ progress }}%;"></div>
+        </div>
+    </div>
+    
+    <!-- Сегодняшние пары (если есть) -->
+    {% if today_schedule %}
+    <div class="card-custom mb-4">
+        <h3 class="section-title">
+            <i class="bi bi-calendar-day text-primary me-2"></i>
+            Сегодня
+        </h3>
+        <div class="vstack gap-2">
+            {% for lesson in today_schedule %}
+            <div class="d-flex align-items-center p-2 bg-light rounded">
+                <div class="me-3 fw-bold text-primary" style="min-width: 80px;">
+                    {{ lesson.start_time }}-{{ lesson.end_time }}
+                </div>
+                <div>
+                    <div class="fw-bold">{{ lesson.subject }}</div>
+                    <small class="text-muted">{{ lesson.teacher }} • {{ lesson.room }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Основной контент -->
+    <div class="row g-4">
+        <!-- Левая колонка: Оценки -->
+        <div class="col-lg-8">
+            <div class="card-custom">
+                <h3 class="section-title">
+                    <i class="bi bi-journal-bookmark-fill text-primary me-2"></i>Мои оценки
+                </h3>
+                
+                {% if subjects %}
+                    <div class="vstack gap-4">
+                        {% for subject, grade_list in subjects.items %}
+                        <div class="border-bottom pb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold mb-0">{{ subject.name }}</h6>
+                                <span class="badge-custom 
+                                    {% if subject_totals|get_item:subject >= 21 %}badge-success
+                                    {% elif subject_totals|get_item:subject >= 15 %}badge-warning
+                                    {% else %}badge-danger{% endif %}">
+                                    {{ subject_totals|get_item:subject }}/21
+                                </span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for grade in grade_list|slice:":10" %}
+                                <div class="text-center p-2 bg-light rounded" style="min-width: 50px;" 
+                                     title="{{ grade.comment|default:'' }}">
+                                    <div class="fw-bold 
+                                        {% if grade.points > 1 %}text-success
+                                        {% elif grade.points == 1 %}text-primary
+                                        {% else %}text-danger{% endif %}">
+                                        {{ grade.raw_value }}
+                                    </div>
+                                    <small class="text-muted">{{ grade.date|date:"d.m" }}</small>
+                                </div>
+                                {% endfor %}
+                                {% if grade_list|length > 10 %}
+                                <div class="text-center p-2">
+                                    <small class="text-muted">+{{ grade_list|length|add:"-10" }}</small>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-emoji-frown display-1 text-muted"></i>
+                        <h5 class="mt-3">У вас пока нет оценок</h5>
+                        <p class="text-muted">Они появятся после занятий</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Правая колонка -->
+        <div class="col-lg-4">
+            <!-- Карточка пропусков -->
+            <div class="card-custom mb-4">
+                <h3 class="section-title">
+                    <i class="bi bi-calendar-x text-danger me-2"></i>Пропуски
+                </h3>
+                <div class="text-center mb-4">
+                    <span class="display-3 fw-bold {% if remaining <= 5 %}text-danger{% elif remaining <= 10 %}text-warning{% else %}text-success{% endif %}">
+                        {{ total_hours }}
+                    </span>
+                    <span class="text-muted">часов</span>
+                </div>
+                
+                <div class="progress-custom mb-3">
+                    <div class="progress-fill {% if progress >= 75 %}bg-danger{% elif progress >= 50 %}bg-warning{% endif %}" 
+                         style="width: {{ progress }}%;"></div>
+                </div>
+                
+                <div class="alert {% if remaining <= 5 %}alert-danger{% elif remaining <= 10 %}alert-warning{% else %}alert-success{% endif %} mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    {% if remaining <= 0 %}
+                        <strong>Лимит исчерпан!</strong> Обратитесь к старосте
+                    {% elif remaining <= 5 %}
+                        <strong>Осталось всего {{ remaining }} ч.</strong> Будьте внимательны
+                    {% elif remaining <= 10 %}
+                        <strong>Осталось {{ remaining }} ч.</strong>
+                    {% else %}
+                        <strong>Всё в порядке.</strong> Осталось {{ remaining }} ч.
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Быстрые действия -->
+            <div class="card-custom">
+                <h3 class="section-title">
+                    <i class="bi bi-lightning-charge text-warning me-2"></i>Быстрые действия
+                </h3>
+                <div class="vstack gap-2">
+                    <a href="{% url 'student_schedule' %}" class="btn btn-outline-primary py-3">
+                        <i class="bi bi-calendar-week me-2"></i>Расписание
+                    </a>
+                    <a href="{% url 'student_attendance' %}" class="btn btn-outline-info py-3">
+                        <i class="bi bi-clock-history me-2"></i>История пропусков
+                    </a>
+                    <a href="{% url 'student_priority' %}" class="btn btn-outline-success py-3">
+                        <i class="bi bi-graph-up me-2"></i>Приоритеты
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Последние новости/комментарии (если есть) -->
+            {% if comments %}
+            <div class="card-custom mt-4">
+                <h3 class="section-title">
+                    <i class="bi bi-megaphone text-danger me-2"></i>Объявления
+                </h3>
+                <div class="vstack gap-2">
+                    {% for comment in comments|slice:":3" %}
+                    <div class="p-2 bg-light rounded {% if comment.is_urgent %}border-danger{% endif %}">
+                        <small class="text-muted">{{ comment.created_at|date:"d.m H:i" }}</small>
+                        <div>{{ comment.comment|truncatechars:50 }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

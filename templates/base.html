@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>{% block title %}КФ ЖУРНАЛ{% endblock %}</title>
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        /* ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ========== */
+        :root {
+            --primary: #0d6efd;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --dark: #212529;
+            --light: #f8f9fa;
+            --gray: #6c757d;
+            --border-radius: 12px;
+            --card-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            --transition: all 0.2s ease;
+        }
+        
+        /* ========== БАЗОВЫЕ СТИЛИ ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            width: 100%;
+            overflow-x: hidden;
+            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+        
+        /* ========== НАВИГАЦИЯ ========== */
+        .navbar {
+            padding: 8px 16px;
+            background: var(--primary) !important;
+        }
+        
+        .navbar-brand {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 4px;
+            margin-right: 8px;
+        }
+        
+        .nav-btn {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            transition: var(--transition);
+        }
+        
+        .nav-btn:active {
+            background: rgba(255,255,255,0.3);
+            transform: scale(0.95);
+        }
+        
+        .user-info {
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .user-info {
+                display: inline-block;
+                margin-right: 16px;
+                color: rgba(255,255,255,0.9);
+                font-size: 0.9rem;
+            }
+        }
+        
+        .logout-btn {
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            background: var(--danger);
+            border: none;
+            color: white;
+        }
+        
+        /* ========== КОНТЕЙНЕРЫ ========== */
+        .container-custom {
+            max-width: 100%;
+            padding: 16px;
+        }
+        
+        @media (min-width: 768px) {
+            .container-custom {
+                padding: 24px;
+                max-width: 1400px;
+                margin: 0 auto;
+            }
+        }
+        
+        /* ========== КАРТОЧКИ ========== */
+        .card-custom {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0,0,0,0.03);
+            transition: var(--transition);
+        }
+        
+        .card-custom:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        /* ========== ЗАГОЛОВКИ ========== */
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .page-title {
+                font-size: 1.8rem;
+            }
+        }
+        
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        /* ========== СТАТИСТИКА ========== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        @media (min-width: 480px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--card-shadow);
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(13,110,253,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 24px;
+        }
+        
+        .stat-icon.success { background: rgba(40,167,69,0.1); color: var(--success); }
+        .stat-icon.warning { background: rgba(255,193,7,0.1); color: var(--warning); }
+        .stat-icon.danger { background: rgba(220,53,69,0.1); color: var(--danger); }
+        
+        .stat-content {
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--gray);
+        }
+        
+        /* ========== КНОПКИ ДЕЙСТВИЙ ========== */
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+        
+        @media (min-width: 768px) {
+            .actions-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        
+        .action-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 16px 12px;
+            text-align: center;
+            text-decoration: none;
+            color: var(--dark);
+            border: 1px solid rgba(0,0,0,0.03);
+            transition: var(--transition);
+        }
+        
+        .action-card:active {
+            transform: scale(0.98);
+            background: var(--light);
+        }
+        
+        .action-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(40,167,69,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            color: var(--success);
+            font-size: 24px;
+        }
+        
+        .action-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        
+        .action-desc {
+            font-size: 0.7rem;
+            color: var(--gray);
+        }
+        
+        /* ========== ТАБЛИЦЫ ========== */
+        .table-responsive-custom {
+            overflow-x: auto;
+            margin: 0 -16px;
+            padding: 0 16px;
+        }
+        
+        .table-custom {
+            width: 100%;
+            background: white;
+            border-radius: var(--border-radius);
+            border-collapse: collapse;
+            overflow: hidden;
+        }
+        
+        .table-custom th {
+            background: var(--light);
+            padding: 12px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            color: var(--gray);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .table-custom td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.9rem;
+        }
+        
+        /* ========== ГРИД СТУДЕНТОВ ========== */
+        .students-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        
+        @media (min-width: 640px) {
+            .students-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .students-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        .student-card {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 16px;
+            position: relative;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+        
+        .student-number {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 24px;
+            height: 24px;
+            background: var(--light);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--gray);
+        }
+        
+        .student-avatar {
+            text-align: center;
+            margin: 12px 0;
+        }
+        
+        .student-avatar i {
+            font-size: 48px;
+            color: var(--success);
+        }
+        
+        .student-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        
+        .student-info {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 12px;
+            margin: 12px 0;
+            font-size: 0.85rem;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #ddd;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .student-actions {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+            background: white;
+            color: var(--gray);
+            transition: var(--transition);
+        }
+        
+        .btn-icon:active {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+        
+        /* ========== ПРОГРЕСС-БАР ========== */
+        .progress-custom {
+            height: 8px;
+            background: var(--light);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--success));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+        
+        /* ========== УВЕДОМЛЕНИЯ ========== */
+        .notification {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            left: 16px;
+            z-index: 9999;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideDown 0.3s ease;
+        }
+        
+        @media (min-width: 576px) {
+            .notification {
+                left: auto;
+                width: 300px;
+            }
+        }
+        
+        @keyframes slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* ========== МОДАЛЬНЫЕ ОКНА ========== */
+        .modal-content {
+            border-radius: 16px;
+            border: none;
+        }
+        
+        .modal-header {
+            border-radius: 16px 16px 0 0;
+            padding: 16px 20px;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #eee;
+        }
+        
+        /* ========== ФОРМЫ ========== */
+        .form-control, .form-select {
+            border-radius: 10px;
+            padding: 10px 12px;
+            border: 1px solid #dee2e6;
+            font-size: 0.95rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(13,110,253,0.1);
+        }
+        
+        .input-group-text {
+            border-radius: 10px 0 0 10px;
+            background: var(--light);
+        }
+        
+        /* ========== БЭЙДЖИ ========== */
+        .badge-custom {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .badge-success { background: rgba(40,167,69,0.1); color: var(--success); }
+        .badge-warning { background: rgba(255,193,7,0.1); color: #856404; }
+        .badge-danger { background: rgba(220,53,69,0.1); color: var(--danger); }
+        .badge-info { background: rgba(13,202,240,0.1); color: #0f7a9e; }
+        
+        /* ========== АДАПТИВНОСТЬ ========== */
+        .d-mobile-only {
+            display: block;
+        }
+        
+        .d-desktop-only {
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .d-mobile-only {
+                display: none;
+            }
+            
+            .d-desktop-only {
+                display: block;
+            }
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Навигационная панель -->
+    <nav class="navbar">
+        <div class="container-fluid">
+            <a class="navbar-brand text-white" href="{% url 'home' %}">
+                <i class="bi bi-journal-bookmark-fill me-1"></i>
+                <span class="d-none d-sm-inline">КФ ЖУРНАЛ</span>
+                <span class="d-inline d-sm-none">КФ</span>
+            </a>
+            
+            <div class="d-flex align-items-center">
+                <!-- Кнопки навигации -->
+                {% if request.session.elder_id or request.session.student_id or request.session.admin_id %}
+                <div class="nav-buttons">
+                    <button class="nav-btn" onclick="history.back()"><i class="bi bi-arrow-left"></i></button>
+                    <button class="nav-btn" onclick="history.forward()"><i class="bi bi-arrow-right"></i></button>
+                    <button class="nav-btn" onclick="goToDashboard()"><i class="bi bi-house-door"></i></button>
+                </div>
+                {% endif %}
+                
+                <!-- Информация о пользователе -->
+                {% if request.session.elder_name %}
+                <span class="user-info">
+                    <i class="bi bi-star-fill me-1"></i> {{ request.session.elder_name|truncatechars:15 }}
+                </span>
+                {% elif request.session.student_name %}
+                <span class="user-info">
+                    <i class="bi bi-person-circle me-1"></i> {{ request.session.student_name|truncatechars:15 }}
+                </span>
+                {% endif %}
+                
+                <!-- Кнопка выхода -->
+                {% if request.session.elder_id %}
+                <a href="{% url 'elder_logout' %}" class="logout-btn"><i class="bi bi-box-arrow-right"></i></a>
+                {% elif request.session.student_id %}
+                <a href="{% url 'student_logout' %}" class="logout-btn"><i class="bi bi-box-arrow-right"></i></a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Основной контент -->
+    <main>
+        <div class="container-custom">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function goToDashboard() {
+            {% if request.session.elder_id %}
+            window.location.href = '/elders/dashboard/';
+            {% elif request.session.student_id %}
+            window.location.href = '/students/dashboard/';
+            {% else %}
+            window.location.href = '/';
+            {% endif %}
+        }
+        
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification bg-${type}`;
+            notification.innerHTML = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

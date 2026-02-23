@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}КФ ЖУРНАЛ - Главная{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Заголовок -->
+            <div class="text-center mb-5">
+                <h1 class="display-3 fw-bold text-primary mb-3">КФ ЖУРНАЛ</h1>
+                <p class="lead text-muted">
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor 
+                    incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+                </p>
+            </div>
+
+            <!-- Приветствие -->
+            <div class="alert alert-success alert-dismissible fade show shadow-sm mb-5" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-emoji-smile fs-1 me-3"></i>
+                    <div>
+                        <h4 class="alert-heading">Добро пожаловать!</h4>
+                        <p class="mb-0">Система управления учебным процессом</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Карточки выбора -->
+            <div class="row g-4">
+                <!-- Карточка для абитуриентов/студентов -->
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm hover-card">
+                        <div class="card-body text-center p-5">
+                            <div class="display-1 text-primary mb-4">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <h2 class="card-title h1 mb-3">Абитуриенты</h2>
+                            <p class="card-text text-muted mb-4">
+                                Для студентов и старост групп. Расписание, оценки, 
+                                посещаемость, учебные материалы и статистика.
+                            </p>
+                            <a href="{% url 'student_login' %}" class="btn btn-primary btn-lg px-5 py-3 rounded-pill">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>
+                                Войти
+                            </a>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Есть аккаунт? Входите!
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Карточка для сотрудников -->
+                <div class="col-md-6">
+                    <div class="card h-100 border-0 shadow-sm hover-card">
+                        <div class="card-body text-center p-5">
+                            <div class="display-1 text-success mb-4">
+                                <i class="bi bi-building"></i>
+                            </div>
+                            <h2 class="card-title h1 mb-3">Сотрудники ВУЗа</h2>
+                            <p class="card-text text-muted mb-4">
+                                Для преподавателей, деканата, отделов и администрации. 
+                                Управление документами и коммуникация.
+                            </p>
+                            <a href="#" class="btn btn-success btn-lg px-5 py-3 rounded-pill">
+                                <i class="bi bi-box-arrow-in-right me-2"></i>
+                                Войти
+                            </a>
+                            <div class="mt-3">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock-history me-1"></i>
+                                    Скоро будет доступно
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Дополнительная информация -->
+            <div class="row mt-5 pt-5">
+                <div class="col-12">
+                    <div class="card bg-light border-0">
+                        <div class="card-body p-4">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h5 class="mb-2">
+                                        <i class="bi bi-question-circle text-primary me-2"></i>
+                                        Нужна помощь?
+                                    </h5>
+                                    <p class="text-muted mb-0">
+                                        Если у вас возникли проблемы с доступом, обратитесь к 
+                                        системному администратору или в учебную часть.
+                                    </p>
+                                </div>
+                                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                    <a href="{% url 'page_404' %}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-envelope me-2"></i>
+                                        Написать нам
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hover-card {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    .hover-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1) !important;
+    }
+    .hover-card .display-1 {
+        transition: all 0.3s ease;
+    }
+    .hover-card:hover .display-1 {
+        transform: scale(1.1);
+    }
+</style>
+{% endblock %}

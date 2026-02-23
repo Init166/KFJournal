@@ -1,0 +1,921 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Расписание - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div>
+    <!-- Верхняя панель -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="page-title mb-2">
+                <i class="bi bi-calendar-week text-success me-2"></i>
+                Расписание группы {{ group.name }}
+            </h1>
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge-custom {% if week_type == 'even' %}badge-info{% else %}badge-warning{% endif %} p-3">
+                    {{ week_display }} неделя
+                </span>
+                <span class="text-muted">{{ current_date|date:"d.m.Y" }}</span>
+            </div>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary" onclick="changeWeekOffset(-1)">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <button class="btn btn-outline-primary" onclick="changeWeekOffset(1)">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <button class="btn btn-outline-success" onclick="goToToday()">
+                <i class="bi bi-calendar-check"></i>
+            </button>
+            <button class="btn btn-outline-danger" onclick="openAddCommentModal('week')">
+                <i class="bi bi-chat-dots"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Календарь (сворачиваемый) -->
+    <button class="btn btn-outline-secondary w-100 mb-3" onclick="toggleCalendar()" id="toggleCalendarBtn">
+        <i class="bi bi-chevron-up"></i> Скрыть календарь
+    </button>
+    
+    <div class="card-custom mb-4" id="calendarSection">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="h5 fw-bold">{{ month_days.month_name }} {{ month_days.year }}</h3>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeMonth(-1)">←</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeMonth(1)">→</button>
+            </div>
+        </div>
+        
+        <div class="calendar-grid">
+            <div class="text-center text-muted small fw-bold py-2">Пн</div>
+            <div class="text-center text-muted small fw-bold py-2">Вт</div>
+            <div class="text-center text-muted small fw-bold py-2">Ср</div>
+            <div class="text-center text-muted small fw-bold py-2">Чт</div>
+            <div class="text-center text-muted small fw-bold py-2">Пт</div>
+            <div class="text-center text-muted small fw-bold py-2">Сб</div>
+            <div class="text-center text-muted small fw-bold py-2">Вс</div>
+            
+            {% for _ in ""|ljust:month_days.first_day %}
+            <div></div>
+            {% endfor %}
+            
+            {% for day in month_days.days %}
+            <div class="calendar-day {{ day.week_type }} {% if day.is_today %}today{% endif %}"
+                 onclick="selectDate('{{ day.date|date:'Y-m-d' }}')">
+                {{ day.day }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Расписание (горизонтальная прокрутка) -->
+    <div class="schedule-scroll" id="scheduleScroll">
+        <!-- Загружается через JS -->
+    </div>
+</div>
+
+<!-- Панель комментариев -->
+<div class="comments-panel" id="commentsPanel">
+    <div class="comments-header">
+        <h5 class="mb-0">Комментарии</h5>
+        <button onclick="openAddCommentModal('week')">✕</button>
+    </div>
+    <div class="comments-list" id="commentsList">
+        <div class="text-center text-muted py-4">Нет комментариев</div>
+    </div>
+</div>
+
+<!-- Модальное окно комментария -->
+<div class="modal fade" id="commentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Добавить комментарий</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="commentForm">
+                {% csrf_token %}
+                <input type="hidden" name="week_type" value="{{ week_type }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <select class="form-select" name="scope" id="commentScope">
+                            <option value="week">На всю неделю</option>
+                            <option value="day">На конкретный день</option>
+                            <option value="date">На конкретную дату</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="daySelector" style="display: none;">
+                        <select class="form-select" name="day">
+                            <option value="1">Понедельник</option>
+                            <option value="2">Вторник</option>
+                            <option value="3">Среда</option>
+                            <option value="4">Четверг</option>
+                            <option value="5">Пятница</option>
+                            <option value="6">Суббота</option>
+                            <option value="7">Воскресенье</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="dateSelector" style="display: none;">
+                        <input type="date" class="form-control" name="date" value="{{ current_date|date:'Y-m-d' }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <textarea class="form-control" name="comment" rows="3" 
+                                  placeholder="Что случилось? Отмена, перенос, дистант..." required></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" name="is_urgent" id="isUrgent">
+                        <label class="form-check-label" for="isUrgent">Срочное</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">Добавить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно редактирования/добавления пары -->
+<div class="modal fade" id="lessonModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="lessonModalTitle">Редактировать пару</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="lessonForm">
+                {% csrf_token %}
+                <input type="hidden" name="lesson_id" id="lessonId">
+                <input type="hidden" name="day" id="lessonDay">
+                <input type="hidden" name="week_type" value="{{ week_type }}">
+                
+                <div class="modal-body">
+                    <!-- Номер пары и время -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Номер пары</label>
+                        <select class="form-select" name="pair_number" id="lessonPair" required onchange="updateTimeByPair()">
+                            <option value="1">1 пара (8:00 - 9:30)</option>
+                            <option value="2">2 пара (9:40 - 11:10)</option>
+                            <option value="3">3 пара (11:20 - 12:50)</option>
+                            <option value="4">4 пара (13:30 - 15:00)</option>
+                            <option value="5">5 пара (15:10 - 16:40)</option>
+                            <option value="6">6 пара (16:50 - 18:20)</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Время (можно редактировать вручную) -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Начало</label>
+                            <input type="text" class="form-control" name="start_time" id="lessonStart" 
+                                   placeholder="9:40" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-semibold">Конец</label>
+                            <input type="text" class="form-control" name="end_time" id="lessonEnd" 
+                                   placeholder="11:10" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Предмет -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Предмет</label>
+                        <input type="text" class="form-control" name="subject" id="lessonSubject" 
+                               list="subjectsList" required placeholder="Введите предмет">
+                        <datalist id="subjectsList">
+                            {% for subject in subjects %}
+                            <option value="{{ subject.name }}">{{ subject.name }}</option>
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    
+                    <!-- Тип занятия -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Тип занятия</label>
+                        <select class="form-select" name="lesson_type" id="lessonType">
+                            <option value="lecture">Лекция</option>
+                            <option value="seminar">Семинар</option>
+                            <option value="practice">Практика</option>
+                            <option value="lab">Лабораторная</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Преподаватель -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Преподаватель</label>
+                        <input type="text" class="form-control" name="teacher" id="lessonTeacher" 
+                               placeholder="Иванов И.И.">
+                    </div>
+                    
+                    <!-- Аудитория -->
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Аудитория</label>
+                        <input type="text" class="form-control" name="room" id="lessonRoom" 
+                               placeholder="401 ауд.">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-danger" id="deleteLessonBtn" onclick="deleteLesson()">
+                        <i class="bi bi-trash"></i> Удалить
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 5px;
+    }
+    
+    .calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+    
+    .calendar-day.even {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .calendar-day.odd {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+    
+    .calendar-day.today {
+        border: 2px solid #28a745;
+        font-weight: bold;
+    }
+    
+    .calendar-day:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .schedule-scroll {
+        display: flex;
+        overflow-x: auto;
+        gap: 16px;
+        padding: 4px 0 20px;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+    }
+    
+    .day-column {
+        min-width: 320px;
+        background: white;
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid rgba(0,0,0,0.05);
+        scroll-snap-align: start;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    }
+    
+    .day-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 15px;
+        margin-bottom: 15px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    
+    .day-header h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #212529;
+        margin: 0;
+    }
+    
+    .day-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .day-actions button {
+        background: none;
+        border: none;
+        color: #6c757d;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    
+    .day-actions button:hover {
+        background: #f0f2f5;
+        color: #dc3545;
+    }
+    
+    .lesson-card {
+        background: #f8f9fc;
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 12px;
+        border-left: 4px solid #28a745;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+    }
+    
+    .lesson-card:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(40,167,69,0.15);
+        background: white;
+    }
+    
+    .lesson-time {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #28a745;
+        margin-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .lesson-actions {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    
+    .lesson-card:hover .lesson-actions {
+        opacity: 1;
+    }
+    
+    .lesson-action-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: none;
+        background: white;
+        color: #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .lesson-action-btn:hover {
+        background: #28a745;
+        color: white;
+    }
+    
+    .lesson-subject {
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 6px;
+        padding-right: 60px;
+    }
+    
+    .lesson-teacher, .lesson-room {
+        font-size: 0.85rem;
+        color: #6c757d;
+        margin-bottom: 2px;
+    }
+    
+    .add-lesson-btn {
+        width: 100%;
+        padding: 14px;
+        border: 2px dashed #dee2e6;
+        border-radius: 14px;
+        background: white;
+        color: #6c757d;
+        text-align: center;
+        cursor: pointer;
+        margin-top: 8px;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    
+    .add-lesson-btn:hover {
+        border-color: #28a745;
+        color: #28a745;
+        background: #f0f9f0;
+    }
+    
+    .comments-panel {
+        position: fixed;
+        bottom: 90px;
+        right: 20px;
+        width: 320px;
+        max-height: 400px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        display: none;
+        z-index: 1000;
+        overflow: hidden;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .comments-panel.show {
+        display: block;
+        animation: slideUp 0.3s ease;
+    }
+    
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .comments-header {
+        padding: 15px 20px;
+        background: #dc3545;
+        color: white;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .comments-header h5 {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    
+    .comments-header button {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .comments-list {
+        max-height: 300px;
+        overflow-y: auto;
+        padding: 15px;
+    }
+    
+    .comment-item {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-left: 3px solid #dc3545;
+    }
+    
+    .comment-item.urgent {
+        background: #fff3cd;
+        border-left-color: #ffc107;
+    }
+    
+    .comment-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 6px;
+    }
+    
+    .delete-comment {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        padding: 4px;
+    }
+    
+    .fab-button {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        border-radius: 30px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        box-shadow: 0 4px 15px rgba(220,53,69,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 999;
+        transition: all 0.2s;
+    }
+    
+    .fab-button:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(220,53,69,0.4);
+    }
+    
+    .fab-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #ffc107;
+        color: #212529;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+<script>
+    let currentWeekType = '{{ week_type }}';
+    let currentGroupId = {{ group.id }};
+    let currentDate = '{{ current_date|date:"Y-m-d" }}';
+    
+    // Соответствие номера пары и времени
+    const pairTimes = {
+        1: { start: '8:00', end: '9:30' },
+        2: { start: '9:40', end: '11:10' },
+        3: { start: '11:20', end: '12:50' },
+        4: { start: '13:30', end: '15:00' },
+        5: { start: '15:10', end: '16:40' },
+        6: { start: '16:50', end: '18:20' }
+    };
+    
+    // Навигация
+    function changeWeekOffset(offset) {
+        let date = new Date(currentDate);
+        date.setDate(date.getDate() + (offset * 7));
+        window.location.href = `?date=${date.toISOString().split('T')[0]}`;
+    }
+    
+    function goToToday() {
+        window.location.href = `?date=${new Date().toISOString().split('T')[0]}`;
+    }
+    
+    function selectDate(date) {
+        window.location.href = `?date=${date}`;
+    }
+    
+    function changeMonth(offset) {
+        let date = new Date(currentDate);
+        date.setMonth(date.getMonth() + offset);
+        window.location.href = `?date=${date.toISOString().split('T')[0]}`;
+    }
+    
+    // Календарь
+    function toggleCalendar() {
+        const cal = document.getElementById('calendarSection');
+        const btn = document.getElementById('toggleCalendarBtn');
+        const icon = btn.querySelector('i');
+        
+        if (cal.style.display === 'none') {
+            cal.style.display = 'block';
+            btn.innerHTML = '<i class="bi bi-chevron-up"></i> Скрыть календарь';
+        } else {
+            cal.style.display = 'none';
+            btn.innerHTML = '<i class="bi bi-chevron-down"></i> Показать календарь';
+        }
+    }
+    
+    // Загрузка расписания
+    function loadSchedule() {
+        fetch(`/elders/api/get-schedule/?week_type=${currentWeekType}&group_id=${currentGroupId}`)
+            .then(response => response.json())
+            .then(data => {
+                renderSchedule(data.schedule || []);
+            });
+    }
+    
+    function renderSchedule(schedule) {
+        const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+        const scroll = document.getElementById('scheduleScroll');
+        
+        let html = '';
+        for (let i = 1; i <= 7; i++) {
+            const lessons = schedule.filter(l => l.day === i).sort((a, b) => a.pair_number - b.pair_number);
+            
+            html += `
+                <div class="day-column">
+                    <div class="day-header">
+                        <h3>${days[i-1]}</h3>
+                        <div class="day-actions">
+                            <button onclick="openAddCommentModal('day', ${i})" title="Комментарий">
+                                <i class="bi bi-chat"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    ${lessons.map(lesson => `
+                        <div class="lesson-card" onclick="editLesson(${lesson.id})">
+                            <div class="lesson-time">
+                                ${lesson.start_time} - ${lesson.end_time}
+                                <div class="lesson-actions">
+                                    <button class="lesson-action-btn" onclick="event.stopPropagation(); deleteLesson(${lesson.id})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="lesson-subject">${lesson.subject}</div>
+                            <div class="lesson-teacher"><i class="bi bi-person"></i> ${lesson.teacher || 'Не указан'}</div>
+                            <div class="lesson-room"><i class="bi bi-door-open"></i> ${lesson.room || '—'}</div>
+                        </div>
+                    `).join('')}
+                    
+                    <button class="add-lesson-btn" onclick="addLesson(${i})">
+                        <i class="bi bi-plus-circle"></i> Добавить пару
+                    </button>
+                </div>
+            `;
+        }
+        
+        scroll.innerHTML = html;
+    }
+    
+    // Обновить время при выборе номера пары
+    function updateTimeByPair() {
+        const pair = document.getElementById('lessonPair').value;
+        const time = pairTimes[pair];
+        if (time) {
+            document.getElementById('lessonStart').value = time.start;
+            document.getElementById('lessonEnd').value = time.end;
+        }
+    }
+    
+    // Редактирование пары
+    function editLesson(id) {
+        document.getElementById('lessonModalTitle').textContent = 'Редактировать пару';
+        document.getElementById('deleteLessonBtn').style.display = 'block';
+        
+        fetch(`/elders/api/get-lesson/${id}/`)
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('lessonId').value = data.id;
+                document.getElementById('lessonDay').value = data.day;
+                document.getElementById('lessonPair').value = data.pair_number;
+                document.getElementById('lessonStart').value = data.start_time;
+                document.getElementById('lessonEnd').value = data.end_time;
+                document.getElementById('lessonSubject').value = data.subject;
+                document.getElementById('lessonType').value = data.lesson_type;
+                document.getElementById('lessonTeacher').value = data.teacher || '';
+                document.getElementById('lessonRoom').value = data.room || '';
+                
+                new bootstrap.Modal(document.getElementById('lessonModal')).show();
+            });
+    }
+    
+    // Добавление новой пары
+    function addLesson(day) {
+        document.getElementById('lessonModalTitle').textContent = 'Добавить пару';
+        document.getElementById('deleteLessonBtn').style.display = 'none';
+        document.getElementById('lessonId').value = '';
+        document.getElementById('lessonDay').value = day;
+        document.getElementById('lessonPair').value = '2';
+        document.getElementById('lessonStart').value = '9:40';
+        document.getElementById('lessonEnd').value = '11:10';
+        document.getElementById('lessonSubject').value = '';
+        document.getElementById('lessonType').value = 'lecture';
+        document.getElementById('lessonTeacher').value = '';
+        document.getElementById('lessonRoom').value = '';
+        
+        new bootstrap.Modal(document.getElementById('lessonModal')).show();
+    }
+    
+    // Сохранение пары
+    document.getElementById('lessonForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const lessonId = formData.get('lesson_id');
+        
+        const data = {
+            group_id: currentGroupId,
+            day: formData.get('day'),
+            week_type: formData.get('week_type'),
+            pair_number: formData.get('pair_number'),
+            start_time: formData.get('start_time'),
+            end_time: formData.get('end_time'),
+            subject: formData.get('subject'),
+            lesson_type: formData.get('lesson_type'),
+            teacher: formData.get('teacher'),
+            room: formData.get('room')
+        };
+        
+        if (lessonId) {
+            data.id = lessonId;
+        }
+        
+        const url = lessonId ? '/elders/api/update-lesson/' : '/elders/api/add-lesson/';
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('lessonModal')).hide();
+                loadSchedule();
+                showNotification(lessonId ? '✅ Пара обновлена' : '✅ Пара добавлена');
+            } else {
+                showNotification('❌ Ошибка: ' + data.error, 'danger');
+            }
+        });
+    });
+    
+    // Удаление пары
+    function deleteLesson(id) {
+        if (!id) {
+            id = document.getElementById('lessonId').value;
+        }
+        
+        if (!id || id === '') return;
+        
+        if (confirm('Удалить эту пару?')) {
+            fetch('/elders/api/delete-lesson/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: id })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('lessonModal')).hide();
+                    loadSchedule();
+                    showNotification('✅ Пара удалена');
+                }
+            });
+        }
+    }
+    
+    // Комментарии
+    function toggleComments() {
+        document.getElementById('commentsPanel').classList.toggle('show');
+    }
+    
+    function openAddCommentModal(type, target) {
+        const modal = new bootstrap.Modal(document.getElementById('commentModal'));
+        const scope = document.getElementById('commentScope');
+        const daySelector = document.getElementById('daySelector');
+        const dateSelector = document.getElementById('dateSelector');
+        
+        daySelector.style.display = 'none';
+        dateSelector.style.display = 'none';
+        
+        if (type === 'day') {
+            scope.value = 'day';
+            daySelector.style.display = 'block';
+        } else if (type === 'date') {
+            scope.value = 'date';
+            dateSelector.style.display = 'block';
+        } else {
+            scope.value = 'week';
+        }
+        
+        modal.show();
+    }
+    
+    document.getElementById('commentScope')?.addEventListener('change', function() {
+        document.getElementById('daySelector').style.display = this.value === 'day' ? 'block' : 'none';
+        document.getElementById('dateSelector').style.display = this.value === 'date' ? 'block' : 'none';
+    });
+    
+    document.getElementById('commentForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const data = {
+            week_type: formData.get('week_type'),
+            comment: formData.get('comment'),
+            is_urgent: formData.get('is_urgent') === 'on',
+            scope: formData.get('scope')
+        };
+        
+        if (data.scope === 'day') {
+            data.day = formData.get('day');
+        } else if (data.scope === 'date') {
+            data.date = formData.get('date');
+        }
+        
+        fetch('/elders/api/add-comment/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                bootstrap.Modal.getInstance(document.getElementById('commentModal')).hide();
+                loadComments();
+                showNotification('✅ Комментарий добавлен');
+            } else {
+                showNotification('❌ Ошибка: ' + data.error, 'danger');
+            }
+        });
+    });
+    
+    function loadComments() {
+        fetch(`/elders/api/get-comments/?week_type=${currentWeekType}&group_id=${currentGroupId}`)
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('commentsList');
+                const count = document.getElementById('commentCount');
+                
+                if (data.comments?.length) {
+                    if (count) count.textContent = data.comments.length;
+                    list.innerHTML = data.comments.map(c => `
+                        <div class="comment-item ${c.is_urgent ? 'urgent' : ''}">
+                            <div class="comment-meta">
+                                <span><i class="bi bi-person"></i> ${c.author || 'Система'}</span>
+                                <button class="delete-comment" onclick="deleteComment(${c.id})">✕</button>
+                            </div>
+                            <div>${c.text}</div>
+                            <div class="text-muted mt-1 small"><i class="bi bi-clock"></i> ${c.created_time || ''}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div class="text-center text-muted py-4">Нет комментариев</div>';
+                }
+            });
+    }
+    
+    function deleteComment(id) {
+        if (confirm('Удалить комментарий?')) {
+            fetch('/elders/api/delete-comment/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({id: id})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    loadComments();
+                    showNotification('✅ Комментарий удален');
+                }
+            });
+        }
+    }
+    
+    // Уведомления
+    function showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} position-fixed top-0 end-0 m-3`;
+        notification.style.zIndex = '9999';
+        notification.innerHTML = message;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+    
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSchedule();
+        loadComments();
+    });
+</script>
+
+<!-- FAB кнопка -->
+<button class="fab-button" onclick="toggleComments()">
+    <i class="bi bi-chat-dots"></i>
+    <span class="fab-badge" id="commentCount">0</span>
+</button>
+{% endblock %}

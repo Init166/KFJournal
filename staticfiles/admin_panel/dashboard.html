@@ -1,0 +1,176 @@
+<!-- templates/admin_panel/dashboard.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Админ-панель - КФ ЖУРНАЛ{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'admin_panel/css/admin_panel.css' %}">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sortablejs@latest/sortablejs.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="admin-wrapper">
+    <!-- Левая колонка: Базы данных -->
+    <div class="databases-sidebar">
+        <div class="databases-header">
+            <h3><i class="bi bi-database"></i> Базы данных</h3>
+            <p>Управление структурами и пользователями</p>
+        </div>
+        
+        <!-- Кнопка добавления базы данных -->
+        <button class="add-database-btn" onclick="openCreateModal('level')">
+            <i class="bi bi-plus-circle"></i>
+            Добавить базу данных
+        </button>
+        
+        <!-- Дерево баз данных -->
+        <div class="databases-tree" id="databaseTree">
+            {% for level in educational_levels %}
+            <div class="tree-item" data-id="{{ level.id }}" data-type="level">
+                <div class="tree-item-header" onclick="toggleTreeItem(this)">
+                    <i class="bi bi-chevron-right tree-toggle"></i>
+                    <i class="bi bi-database-fill tree-icon"></i>
+                    <span>{{ level.name }}</span>
+                    <span class="badge bg-secondary ms-2">{{ level.student_count }}</span>
+                </div>
+                <div class="tree-children" style="display: none;">
+                    {% for form in level.forms.all %}
+                    <div class="tree-item" data-id="{{ form.id }}" data-type="form">
+                        <div class="tree-item-header" onclick="toggleTreeItem(this)">
+                            <i class="bi bi-chevron-right tree-toggle"></i>
+                            <i class="bi bi-folder-fill tree-icon"></i>
+                            <span>{{ form.name }}</span>
+                            <span class="badge bg-secondary ms-2">{{ form.student_count }}</span>
+                        </div>
+                        <div class="tree-children" style="display: none;">
+                            {% for course in form.courses.all %}
+                            <div class="tree-item" data-id="{{ course.id }}" data-type="course">
+                                <div class="tree-item-header" onclick="toggleTreeItem(this)">
+                                    <i class="bi bi-chevron-right tree-toggle"></i>
+                                    <i class="bi bi-folder-fill tree-icon"></i>
+                                    <span>{{ course.number }} курс</span>
+                                    <span class="badge bg-secondary ms-2">{{ course.student_count }}</span>
+                                </div>
+                                <div class="tree-children" style="display: none;">
+                                    {% for group in course.groups.all %}
+                                    <div class="tree-item" data-id="{{ group.id }}" data-type="group">
+                                        <div class="tree-item-header" onclick="selectDatabaseItem(this, 'group', {{ group.id }})">
+                                            <i class="bi bi-people-fill tree-icon"></i>
+                                            <span>{{ group.name }}</span>
+                                            <span class="badge bg-secondary ms-2">{{ group.students.count }}</span>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            
+            <!-- Отделы и сотрудники -->
+            <div class="tree-item mt-4" data-type="departments">
+                <div class="tree-item-header" onclick="toggleTreeItem(this)">
+                    <i class="bi bi-chevron-right tree-toggle"></i>
+                    <i class="bi bi-building tree-icon"></i>
+                    <span>Отделы и сотрудники</span>
+                    <span class="badge bg-secondary ms-2">{{ departments_count }}</span>
+                </div>
+                <div class="tree-children" style="display: none;">
+                    {% for dept in departments %}
+                    <div class="tree-item" data-id="{{ dept.id }}" data-type="department">
+                        <div class="tree-item-header" onclick="toggleTreeItem(this)">
+                            <i class="bi bi-chevron-right tree-toggle"></i>
+                            <i class="bi bi-folder-fill tree-icon"></i>
+                            <span>{{ dept.name }}</span>
+                            <span class="badge bg-secondary ms-2">{{ dept.employees.count }}</span>
+                        </div>
+                        <div class="tree-children" style="display: none;">
+                            {% for employee in dept.employees.all %}
+                            <div class="tree-item" data-id="{{ employee.id }}" data-type="employee">
+                                <div class="tree-item-header" onclick="selectDatabaseItem(this, 'employee', {{ employee.id }})">
+                                    <i class="bi bi-person-badge tree-icon"></i>
+                                    <span>{{ employee.full_name }}</span>
+                                    <span class="badge" style="background-color: #6f42c1; color: white;">{{ employee.get_position_display }}</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Логи действий -->
+        <div class="mt-auto p-3 border-top">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="bi bi-clock-history"></i>
+                    <strong>Последние логи</strong>
+                </div>
+                <a href="#" class="text-primary">Все логи →</a>
+            </div>
+            <div class="mt-2" style="max-height: 150px; overflow-y: auto;">
+                {% for log in recent_logs %}
+                <div class="small text-muted mb-1">
+                    <i class="bi bi-dot"></i>
+                    {{ log.created_at|time:"H:i" }} - {{ log.get_action_display }}: {{ log.model_name }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Правая колонка: Содержимое базы данных -->
+    <div class="database-content" id="databaseContent">
+        <div class="content-header">
+            <div class="content-title">
+                <h2 id="selectedItemTitle">Выберите базу данных</h2>
+                <p id="selectedItemPath">Нажмите на элемент в левой колонке для просмотра содержимого</p>
+            </div>
+            <div class="content-actions" id="contentActions">
+                <!-- Кнопки будут динамически меняться -->
+            </div>
+        </div>
+        
+        <!-- Содержимое -->
+        <div id="contentContainer">
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-database display-1"></i>
+                <h3 class="mt-3">Выберите элемент в дереве баз данных</h3>
+                <p>Здесь отобразится список пользователей и информация о выбранной структуре</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания/редактирования -->
+<div id="itemModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Создание элемента</h3>
+            <button type="button" class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="modalBody">
+            <!-- Содержимое будет заполняться динамически -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script src="{% static 'admin_panel/js/admin_panel.js' %}"></script>
+<script>
+    // Инициализация Drag & Drop
+    document.addEventListener('DOMContentLoaded', function() {
+        initDatabaseTree();
+        initDragAndDrop();
+    });
+</script>
+{% endblock %}
